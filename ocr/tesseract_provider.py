@@ -14,7 +14,6 @@ Patrones de extracción soportados:
 import os
 import re
 from dataclasses import dataclass
-from pathlib import Path
 
 import pytesseract
 from PIL import Image, ImageFilter
@@ -56,6 +55,7 @@ class TesseractConfig:
 
     @classmethod
     def from_env(cls) -> "TesseractConfig":
+        """Crea el provider desde variables de entorno y .env."""
         cfg = cls(
             cmd=os.getenv("TESSERACT_CMD", "").strip(),
             lang=os.getenv("TESSERACT_LANG", "spa").strip(),
@@ -83,9 +83,11 @@ class TesseractProvider(OCRProvider):
 
     @property
     def nombre(self) -> str:
+        """Nombre del proveedor: tesseract."""
         return "tesseract"
 
     def extraer_campos(self, ruta_imagen: str) -> OCRResult:
+        """Procesa la imagen con Tesseract OCR y retorna los campos extraidos."""
         if not self.config.cmd or not os.path.exists(self.config.cmd):
             return OCRResult(texto_completo="", proveedor=self.nombre)
 

@@ -15,9 +15,11 @@ class CloudinaryStorageProvider(StorageProvider):
 
     @property
     def nombre(self) -> str:
+        """Nombre del backend: cloudinary."""
         return "cloudinary"
 
     def guardar(self, imagen_bytes: bytes, nombre_archivo: str) -> str:
+        """Sube la imagen a Cloudinary y retorna su URL publica."""
         import cloudinary
         import cloudinary.uploader
 

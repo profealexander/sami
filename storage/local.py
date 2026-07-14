@@ -6,7 +6,6 @@ Configuración en .env:
 """
 
 import os
-from pathlib import Path
 
 from config.logger import get_logger
 from config.settings import settings, PROJECT_ROOT
@@ -20,9 +19,11 @@ class LocalStorageProvider(StorageProvider):
 
     @property
     def nombre(self) -> str:
+        """Nombre del backend: local."""
         return "local"
 
     def guardar(self, imagen_bytes: bytes, nombre_archivo: str) -> str:
+        """Guarda la imagen en disco local y retorna ruta relativa."""
         ruta_relativa = os.path.join(settings.upload_dir, nombre_archivo)
         ruta_absoluta = PROJECT_ROOT / ruta_relativa
         ruta_absoluta.parent.mkdir(parents=True, exist_ok=True)

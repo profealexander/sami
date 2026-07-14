@@ -37,3 +37,7 @@ env/
 *.exe
 *.log
 tmp/
+
+# ── SQLite WAL mode ──
+*.db-wal
+*.db-shm

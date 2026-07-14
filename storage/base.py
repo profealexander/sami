@@ -6,7 +6,6 @@ Retorna la ruta (local) o URL (S3/Cloudinary) donde quedó la imagen.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 
 class StorageProvider(ABC):

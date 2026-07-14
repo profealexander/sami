@@ -15,9 +15,11 @@ class S3StorageProvider(StorageProvider):
 
     @property
     def nombre(self) -> str:
+        """Nombre del backend: s3."""
         return "s3"
 
     def guardar(self, imagen_bytes: bytes, nombre_archivo: str) -> str:
+        """Sube la imagen a S3 y retorna la URL publica o key del objeto."""
         import boto3
         from botocore.config import Config
 

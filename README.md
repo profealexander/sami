@@ -8,14 +8,18 @@
 ## Arquitectura (3 capas + infraestructura)
 
 ```
-Capa 1:  main.py            Controlador FastAPI (rutas, CORS, PWA)
-Capa 2:  service.py         Logica de negocio (OCR + almacenamiento + BD)
-Capa 3:  database.py        Repositorio SQLite / PostgreSQL
+Capa 1:  main.py              Controlador FastAPI (rutas, CORS, PWA)
+Capa 2:  service.py           Logica de negocio (OCR + almacenamiento + BD)
+Capa 3:  database/            Repositorio SQLite / PostgreSQL (backend intercambiable)
 
-Infra:   config/            server.py + settings.py (entorno, BD, storage)
-         ocr/               Motores OCR intercambiables (gemini, tesseract, ocrspace)
-         run.py             Entry point unico
+Infra:   config/              server.py + settings.py (entorno, BD, storage)
+         ocr/                 Motores OCR intercambiables (gemini, tesseract, ocrspace)
+         run.py               Entry point unico
 ```
+
+Cada capa documenta su arquitectura interna en su propio README:
+- `database/README.md` — Motores de BD, modelos, como anadir uno nuevo
+- `ocr/PROVEEDORES_OCR.md` — Proveedores OCR, configuracion, fallback
 
 ---
 
@@ -81,7 +85,7 @@ Diferencia: produccion usa mas workers, sin reload, logs minimos, CORS restringi
 ```bash
 uv sync
 python run.py
-# http://localhost:8000
+# http://localhost:7000
 ```
 
 Para produccion con PostgreSQL:
@@ -106,8 +110,8 @@ docker compose up -d
 ### Local (hoy)
 ```bash
 python run.py
-ngrok http 8000
-# El celular se conecta via Ngrok
+ngrok http 7000
+# El celular se connecta via Ngrok
 ```
 
 ### VPS / Railway / Render

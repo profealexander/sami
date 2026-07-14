@@ -49,6 +49,7 @@ class Settings:
 
     @classmethod
     def load(cls) -> "Settings":
+        """Carga Settings desde variables de entorno y .env."""
         return cls(
             host=os.getenv("HOST", "0.0.0.0").strip(),
             port=int(os.getenv("PORT", "8000")),

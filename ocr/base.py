@@ -34,6 +34,7 @@ class OCRResult:
     destinatario: Optional[str] = None
 
     def to_dict(self) -> dict:
+        """Convierte los campos extraidos a diccionario JSON serializable."""
         return asdict(self)
 
 
@@ -43,8 +44,10 @@ class OCRProvider(ABC):
     @property
     @abstractmethod
     def nombre(self) -> str:
+        """Nombre del proveedor OCR (implementar en subclase)."""
         ...
 
     @abstractmethod
     def extraer_campos(self, ruta_imagen: str) -> OCRResult:
+        """Procesa la imagen y retorna campos extraidos (implementar en subclase)."""
         ...

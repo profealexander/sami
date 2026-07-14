@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from config.logger import get_logger
-from config.settings import PROJECT_ROOT
 from ocr.base import OCRProvider, OCRResult
 from utils.exceptions import OCRError
 
@@ -28,6 +27,7 @@ class GeminiConfig:
 
     @classmethod
     def from_env(cls) -> "GeminiConfig":
+        """Crea el provider desde variables de entorno y .env."""
         return cls(
             api_key=os.getenv("GEMINI_API_KEY", "").strip(),
             model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip(),
@@ -60,9 +60,11 @@ class GeminiProvider(OCRProvider):
 
     @property
     def nombre(self) -> str:
+        """Nombre del proveedor: gemini."""
         return "gemini"
 
     def extraer_campos(self, ruta_imagen: str) -> OCRResult:
+        """Procesa la imagen con Gemini OCR y retorna los campos extraidos."""
         from google import genai
 
         if not self.config.api_key:
@@ -123,6 +125,7 @@ class GeminiProvider(OCRProvider):
         )
 
     def _parsear_json(self, texto: str) -> dict:
+        """Parsea el JSON devuelto por Gemini extrayendo solo los campos del comprobante."""
         try:
             return json.loads(texto)
         except json.JSONDecodeError:

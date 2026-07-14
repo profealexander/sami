@@ -12,9 +12,7 @@ Configurable via .env:
 """
 
 import imghdr
-import os
 from pathlib import Path
-from typing import Tuple
 
 from utils.exceptions import UploadValidationError
 
@@ -90,7 +88,6 @@ def validar_tipo_real(contenido: bytes) -> None:
     independientemente de la extensión del archivo.
     """
     # imghdr.what() lee los primeros bytes y detecta el formato
-    import io
     detected = imghdr.what(None, h=contenido)
 
     if detected is None:

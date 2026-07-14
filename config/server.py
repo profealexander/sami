@@ -8,8 +8,7 @@ Cada provider OCR ya tiene su propia config en ocr/*_provider.py.
 """
 
 import os
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -53,6 +52,7 @@ class ServerConfig:
 
     @classmethod
     def from_env(cls) -> "ServerConfig":
+        """Crea ServerConfig a partir de variables de entorno y .env."""
         env = os.getenv("ENV", "development").strip().lower()
 
         # En producción, por defecto más workers y sin reload
@@ -92,10 +92,12 @@ class ServerConfig:
 
     @property
     def is_production(self) -> bool:
+        """True si el entorno es production."""
         return self.env == "production"
 
     @property
     def is_development(self) -> bool:
+        """True si el entorno es development."""
         return self.env == "development"
 
 

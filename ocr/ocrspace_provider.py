@@ -9,7 +9,6 @@ import base64
 import os
 import re
 from dataclasses import dataclass
-from pathlib import Path
 
 import requests
 
@@ -47,6 +46,7 @@ class OCRSpaceConfig:
 
     @classmethod
     def from_env(cls) -> "OCRSpaceConfig":
+        """Crea el provider desde variables de entorno y .env."""
         return cls(
             api_key=os.getenv("OCRSPACE_API_KEY", "").strip(),
             language=os.getenv("OCRSPACE_LANGUAGE", "spa").strip(),
@@ -63,9 +63,11 @@ class OCRSpaceProvider(OCRProvider):
 
     @property
     def nombre(self) -> str:
+        """Nombre del proveedor: ocrspace."""
         return "ocrspace"
 
     def extraer_campos(self, ruta_imagen: str) -> OCRResult:
+        """Procesa la imagen con Ocrspace OCR y retorna los campos extraidos."""
         if not self.config.api_key:
             logger.error("OCRSPACE_API_KEY no configurada en .env")
             raise OCRError(

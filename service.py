@@ -26,6 +26,7 @@ logger = get_logger("service")
 
 
 def guardar_imagen_fisica(imagen_bytes: bytes, extension: str) -> str:
+    """Guarda imagen en disco segun backend configurado (local/s3/cloudinary) y retorna ruta."""
     nombre_archivo = f"{uuid.uuid4().hex}{extension}"
     backend = get_storage_backend()
     ruta = backend.guardar(imagen_bytes, nombre_archivo)
@@ -117,6 +118,7 @@ def procesar_y_guardar_comprobante(
 
 
 def _resolver_ruta_imagen(ruta_imagen: str) -> str:
+    """Convierte ruta relativa en BD a ruta absoluta del archivo fisico."""
     if server_config.storage_backend == "local":
         return str(PROJECT_ROOT / ruta_imagen)
 
@@ -132,6 +134,7 @@ def _resolver_ruta_imagen(ruta_imagen: str) -> str:
 
 
 def _limpiar_temporal(ruta_absoluta: str, ruta_original: str) -> None:
+    """Elimina archivo temporal y la copia original del storage."""
     if server_config.storage_backend != "local" and os.path.exists(ruta_absoluta):
         os.remove(ruta_absoluta)
         logger.debug("Temporal eliminado: %s", ruta_absoluta)

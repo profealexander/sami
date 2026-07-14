@@ -27,9 +27,11 @@ class FallbackProvider(OCRProvider):
 
     @property
     def nombre(self) -> str:
+        """Nombre compuesto: primario+fallback."""
         return f"{self._primary.nombre}+{self._fallback.nombre}"
 
     def extraer_campos(self, ruta_imagen: str) -> OCRResult:
+        """Ejecuta el OCR con fallback: intenta primario, si falla usa secundario."""
         try:
             return self._primary.extraer_campos(ruta_imagen)
         except Exception as e:

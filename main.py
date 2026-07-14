@@ -44,22 +44,34 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-@app.get("/health")
+@app.get("/health", description="Verifica que el servidor esta vivo y funcionando correctamente")
 def health_check():
+    """Health check. Retorna estado, version y entorno activo."""
     return {"status": "ok", "version": "2.2.0", "entorno": server_config.env}
 
 
-@app.get("/")
+@app.get("/", description="Sirve el frontend PWA para captura de comprobantes desde el movil")
 def leer_index():
+    """Sirve el frontend PWA (static/index.html) para uso desde el movil."""
     return FileResponse("static/index.html")
 
 
-@app.post("/api/upload")
+@app.post("/api/upload", description="Sube una foto de comprobante y extrae su texto mediante OCR")
 async def subir_comprobante(
-    imagen: UploadFile = File(...),
-    cliente_id: str = Form(...),
+    imagen: UploadFile = File(..., description="Imagen del comprobante en formato JPG, PNG o WebP"),
+    cliente_id: str = Form(..., description="Identificador unico del cliente, tienda o cajero (ej: 'tienda_001')"),
     db: Session = Depends(get_db),
 ):
+    """Endpoint principal de captura de comprobantes.
+
+    Recibe una imagen, la valida, pasa por OCR multi-proveedor,
+    guarda los datos extraidos en base de datos y retorna
+    la informacion del comprobante procesado.
+
+    El proveedor OCR se configura via variable OCR_PROVIDER en .env
+    (gemini, tesseract u ocrspace). Si falla, cae automaticamente
+    a Tesseract como fallback local.
+    """
     cliente_id = cliente_id.strip()
     if not cliente_id:
         raise HTTPException(
@@ -140,6 +152,7 @@ async def subir_comprobante(
 
 @app.exception_handler(Exception)
 async def error_global(request: Request, exc: Exception):
+    """Captura cualquier excepcion no manejada y retorna 500."""
     logger.exception("Excepcion no capturada en %s", request.url.path)
     return JSONResponse(
         status_code=500,
