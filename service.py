@@ -6,12 +6,17 @@ NO contiene logica directa de OCR ni de almacenamiento.
 """
 
 import os
+import tempfile
 import uuid
 from datetime import datetime
+
+import requests
 
 from sqlalchemy.orm import Session
 
 from config.logger import get_logger
+from config.server import server_config
+from config.settings import PROJECT_ROOT
 from database import Comprobante
 from ocr import get_ocr_engine
 from storage import get_storage_backend
@@ -21,10 +26,6 @@ logger = get_logger("service")
 
 
 def guardar_imagen_fisica(imagen_bytes: bytes, extension: str) -> str:
-    """
-    Guarda la imagen usando el backend configurado en STORAGE_BACKEND.
-    Retorna ruta relativa (local) o URL publica (S3/Cloudinary).
-    """
     nombre_archivo = f"{uuid.uuid4().hex}{extension}"
     backend = get_storage_backend()
     ruta = backend.guardar(imagen_bytes, nombre_archivo)
@@ -48,23 +49,20 @@ def procesar_y_guardar_comprobante(
     Returns:
         Comprobante registrado en BD
     """
-    # 1. Obtener motor OCR (Gemini con fallback Tesseract)
     engine = get_ocr_engine()
-
-    # 2. Resolver ruta absoluta si es local
     ruta_absoluta = _resolver_ruta_imagen(ruta_imagen)
 
-    # 3. Ejecutar OCR
+    # ── Ejecutar OCR ──
     try:
         resultado = engine.extraer_campos(ruta_absoluta)
         logger.info(
-            "OCR exitoso — proveedor=%s | cajero=%s | fecha=%s",
+            "OCR exitoso — proveedor=%s | cajero=%s | fecha=%s | monto=%s",
             engine.nombre,
             resultado.cajero or "N/A",
             resultado.fecha or "N/A",
+            resultado.monto or "N/A",
         )
     except OCRError:
-        # Relanzar errores específicos de OCR (ya logueados)
         raise
     except Exception as e:
         logger.error(
@@ -75,16 +73,15 @@ def procesar_y_guardar_comprobante(
         )
         resultado = None
 
-    # 4. Limpiar temporal si se descargo de S3/Cloudinary
     _limpiar_temporal(ruta_absoluta, ruta_imagen)
 
-    # 5. Valores por defecto si OCR fallo
+    # ── Valores por defecto si OCR falló ──
     cajero = resultado.cajero if resultado and resultado.cajero else "OCR no disponible"
     fecha = resultado.fecha if resultado and resultado.fecha else "OCR no disponible"
     hora = resultado.hora if resultado and resultado.hora else "OCR no disponible"
     no_venta = resultado.no_venta if resultado and resultado.no_venta else None
 
-    # 6. Guardar en BD
+    # ── Guardar en BD ──
     nuevo_comprobante = Comprobante(
         cajero=cajero,
         fecha_comprobante=fecha,
@@ -108,20 +105,20 @@ def procesar_y_guardar_comprobante(
         fecha,
     )
 
+    # Adjuntar campos extendidos al objeto para que la API los devuelva
+    if resultado:
+        nuevo_comprobante._monto = resultado.monto
+        nuevo_comprobante._destinatario = resultado.destinatario
+    else:
+        nuevo_comprobante._monto = None
+        nuevo_comprobante._destinatario = None
+
     return nuevo_comprobante
 
 
 def _resolver_ruta_imagen(ruta_imagen: str) -> str:
-    """Convierte ruta relativa a absoluta, o descarga de S3/Cloudinary a temporal."""
-    from config.server import server_config
-    from config.settings import PROJECT_ROOT
-
     if server_config.storage_backend == "local":
         return str(PROJECT_ROOT / ruta_imagen)
-
-    # Es URL de S3/Cloudinary → descargar a temporal
-    import requests
-    import tempfile
 
     logger.info("Descargando imagen remota: %s", ruta_imagen)
     resp = requests.get(ruta_imagen, timeout=30)
@@ -135,9 +132,6 @@ def _resolver_ruta_imagen(ruta_imagen: str) -> str:
 
 
 def _limpiar_temporal(ruta_absoluta: str, ruta_original: str) -> None:
-    """Borra archivo temporal si la imagen vino de S3/Cloudinary."""
-    from config.server import server_config
-
     if server_config.storage_backend != "local" and os.path.exists(ruta_absoluta):
         os.remove(ruta_absoluta)
         logger.debug("Temporal eliminado: %s", ruta_absoluta)

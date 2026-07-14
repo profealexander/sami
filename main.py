@@ -20,7 +20,6 @@ from utils.upload_validator import (
     configure as configure_validator,
     validar_archivo,
     sanitizar_filename,
-    validar_tamano,
 )
 
 logger = get_logger("api")
@@ -34,7 +33,6 @@ configure_validator(
 app = FastAPI(title="SAMI - Servidor de Comprobantes OCR")
 
 
-# ── CORS configurable ──
 app.add_middleware(
     CORSMiddleware,
     allow_origins=server_config.cors_origins,
@@ -43,37 +41,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Montar carpeta estatica ──
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# ── Health check ──
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "version": "2.1.0", "entorno": server_config.env}
+    return {"status": "ok", "version": "2.2.0", "entorno": server_config.env}
 
 
-# ── Ruta raiz (PWA) ──
 @app.get("/")
 def leer_index():
     return FileResponse("static/index.html")
 
 
-# ── Endpoint principal ──
 @app.post("/api/upload")
 async def subir_comprobante(
     imagen: UploadFile = File(...),
     cliente_id: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    """
-    Sube una imagen de comprobante, ejecuta OCR y guarda en BD.
-
-    Validaciones:
-        - Tamaño maximo: configurable via MAX_UPLOAD_SIZE_MB (default 10 MB)
-        - Extensiones permitidas: .jpg, .jpeg, .png, .webp
-        - Tipo MIME real verificado por magic bytes
-    """
     cliente_id = cliente_id.strip()
     if not cliente_id:
         raise HTTPException(
@@ -82,10 +68,7 @@ async def subir_comprobante(
         )
 
     try:
-        # 1. Leer contenido
         contenido = await imagen.read()
-
-        # 2. Validar tamaño, extensión y tipo real
         logger.info(
             "Upload recibido — filename=%s | size=%d KB | cliente=%s",
             imagen.filename,
@@ -94,11 +77,9 @@ async def subir_comprobante(
         )
         validar_archivo(contenido, imagen.filename or "captura.jpg")
 
-        # 3. Sanitizar y determinar extension
         nombre_seguro = sanitizar_filename(imagen.filename or "captura.jpg")
         ext = f".{nombre_seguro.rsplit('.', 1)[-1]}" if "." in nombre_seguro else ".jpg"
 
-        # 4. Guardar fisicamente y procesar OCR
         ruta_imagen = service.guardar_imagen_fisica(contenido, ext)
         registro = service.procesar_y_guardar_comprobante(db, ruta_imagen, cliente_id)
 
@@ -107,7 +88,7 @@ async def subir_comprobante(
             registro.id, cliente_id, registro.cajero,
         )
 
-        return {
+        response_data = {
             "status": "success",
             "mensaje": "Comprobante procesado y guardado",
             "datos_extraidos": {
@@ -117,6 +98,16 @@ async def subir_comprobante(
                 "venta_no": registro.no_venta,
             },
         }
+
+        # Incluir campos extendidos si existen
+        monto = getattr(registro, "_monto", None)
+        destinatario = getattr(registro, "_destinatario", None)
+        if monto:
+            response_data["datos_extraidos"]["monto"] = monto
+        if destinatario:
+            response_data["datos_extraidos"]["destinatario"] = destinatario
+
+        return response_data
 
     except UploadValidationError as e:
         logger.warning("Upload rechazado: %s", e.mensaje)
@@ -137,7 +128,6 @@ async def subir_comprobante(
         )
 
     except HTTPException:
-        # Relanzar excepciones HTTP que ya construimos
         raise
 
     except Exception as e:
@@ -148,7 +138,6 @@ async def subir_comprobante(
         )
 
 
-# ── Manejador global de errores no capturados ──
 @app.exception_handler(Exception)
 async def error_global(request: Request, exc: Exception):
     logger.exception("Excepcion no capturada en %s", request.url.path)

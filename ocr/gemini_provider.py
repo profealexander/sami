@@ -116,6 +116,8 @@ class GeminiProvider(OCRProvider):
             fecha=datos.get("fecha"),
             hora=datos.get("hora"),
             no_venta=datos.get("no_venta"),
+            monto=datos.get("monto"),
+            destinatario=datos.get("destinatario"),
             texto_completo=datos.get("texto_completo", texto_respuesta),
             proveedor=self.nombre,
         )
