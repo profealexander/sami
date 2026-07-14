@@ -1,0 +1,33 @@
+services:
+  sami:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - sami_uploads:/app/uploads
+      - sami_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sami
+      POSTGRES_USER: sami
+      POSTGRES_PASSWORD: sami_secret
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sami"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  sami_uploads:
+  sami_data:
+  pgdata:

@@ -1,0 +1,39 @@
+# ── Entorno y secretos ──
+.env
+!.env.example
+
+# ── Base de datos local ──
+*.db
+*.db-journal
+
+# ── Uploads (imagenes de clientes) ──
+uploads/*
+!uploads/.gitkeep
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ── Entorno virtual ──
+.venv/
+venv/
+env/
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Docker ──
+# No incluir .env en la imagen
+
+# ── Archivos temporales ──
+*.exe
+*.log
+tmp/

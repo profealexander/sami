@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SAMI - Captura Comprobantes</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
+        
+        #cameraFeed { width: 100%; height: 100%; object-fit: cover; display: none; }
+        
+        #overlay {
+            position: absolute; top: 20px; left: 0; width: 100%; text-align: center;
+            color: white; font-size: 1.2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none; display: none;
+        }
+        
+        #flash {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; opacity: 0; pointer-events: none; transition: opacity 0.15s; display: none;
+        }
+        
+        #statusBar {
+            position: absolute; bottom: 40px; left: 0; width: 100%; text-align: center;
+            color: #0f0; font-family: monospace; font-size: 0.9rem;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.9); pointer-events: none; display: none;
+        }
+        
+        /* Pantalla de inicio con botón */
+        #startScreen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: #1a1a2e; z-index: 10;
+        }
+        #startScreen h1 { color: #fff; font-size: 2rem; margin-bottom: 10px; }
+        #startScreen p { color: #aaa; margin-bottom: 30px; text-align: center; padding: 0 20px; }
+        #startBtn {
+            background: #0f3460; color: white; border: none; padding: 18px 40px;
+            font-size: 1.3rem; border-radius: 12px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(15,52,96,0.5);
+        }
+        #startBtn:active { transform: scale(0.95); }
+        #startBtn .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+        
+        .error-msg { color: #ff6b6b; font-size: 0.9rem; margin-top: 15px; padding: 0 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <!-- Pantalla de inicio -->
+    <div id="startScreen">
+        <h1>SAMI</h1>
+        <p>Captura tus comprobantes<br>con la cámara</p>
+        <button id="startBtn">
+            <span class="icon">📷</span>
+            Iniciar Cámara
+        </button>
+        <div id="errorMsg" class="error-msg"></div>
+    </div>
+    
+    <!-- Cámara -->
+    <video id="cameraFeed" autoplay playsinline></video>
+    <div id="overlay">Toca la pantalla para capturar</div>
+    <div id="statusBar">Listo</div>
+    <div id="flash"></div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js');
+        }
+
+        const video = document.getElementById('cameraFeed');
+        const flash = document.getElementById('flash');
+        const overlay = document.getElementById('overlay');
+        const statusBar = document.getElementById('statusBar');
+        const startScreen = document.getElementById('startScreen');
+        const startBtn = document.getElementById('startBtn');
+        const errorMsg = document.getElementById('errorMsg');
+        
+        const cliente_id = 'C_' + Math.floor(Math.random() * 10000);
+        let mediaStream = null;
+
+        // Iniciar cámara SOLO después del click del usuario
+        startBtn.addEventListener('click', async () => {
+            startBtn.disabled = true;
+            startBtn.textContent = 'Solicitando cámara...';
+            errorMsg.textContent = '';
+            
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false
+                });
+                
+                video.srcObject = mediaStream;
+                
+                // Ocultar pantalla de inicio, mostrar cámara
+                startScreen.style.display = 'none';
+                video.style.display = 'block';
+                overlay.style.display = 'block';
+                statusBar.style.display = 'block';
+                flash.style.display = 'block';
+                statusBar.textContent = 'Cámara activa';
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<span class="icon">📷</span> Iniciar Cámara';
+                
+            } catch (err) {
+                console.error('Error cámara:', err);
+                errorMsg.textContent = 'Error: ' + err.message;
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<span class="icon">📷</span> Reintentar';
+            }
+        });
+
+        // Capturar al tocar el video
+        video.addEventListener('click', () => {
+            if (!video.videoWidth) return;
+            
+            flash.style.opacity = 1;
+            setTimeout(() => { flash.style.opacity = 0; }, 200);
+            overlay.textContent = 'Enviando...';
+            statusBar.textContent = 'Procesando captura...';
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('imagen', blob, 'captura.jpg');
+                formData.append('cliente_id', cliente_id);
+
+                fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    overlay.textContent = '✔ Enviado!
+Toca para otra captura';
+                    statusBar.textContent = 'OCR: ' + (data.datos_extraidos?.cajero || 'OK');
+                    console.log('Respuesta:', data);
+                })
+                .catch(err => {
+                    overlay.textContent = 'Error de red
+Reintenta';
+                    statusBar.textContent = 'Error';
+                    console.error(err);
+                });
+            }, 'image/jpeg', 0.8);
+        });
+    </script>
+</body>
+</html>
