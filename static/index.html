@@ -44,6 +44,13 @@
         #startBtn:active { transform: scale(0.95); }
         #startBtn .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
         
+        .btn-group { display: flex; flex-direction: column; gap: 12px; width: 240px; }
+        #startBtn, #fileBtn { width: 100%; background: #0f3460; color: white; border: none; padding: 18px 20px; font-size: 1.1rem; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(15,52,96,0.5); transition: transform 0.1s; }
+        #startBtn:active, #fileBtn:active { transform: scale(0.95); }
+        #startBtn .icon, #fileBtn .icon { font-size: 1.8rem; display: block; margin-bottom: 6px; }
+        #fileBtn { background: #1a5276; }
+        .status-msg { color: #2ecc71; font-size: 0.95rem; margin-top: 15px; padding: 0 20px; text-align: center; }
+        .status-msg.error { color: #ff6b6b; }
         .error-msg { color: #ff6b6b; font-size: 0.9rem; margin-top: 15px; padding: 0 20px; text-align: center; }
     </style>
 </head>
@@ -56,11 +63,19 @@
             <span class="icon">📷</span>
             Iniciar Cámara
         </button>
+        <button id="fileBtn">
+            <span class="icon">📁</span>
+            Seleccionar Imagen
+        </button>
+        <div id="statusMsg" class="status-msg"></div>
         <div id="errorMsg" class="error-msg"></div>
     </div>
     
     <!-- Cámara -->
     <video id="cameraFeed" autoplay playsinline></video>
+
+    <!-- Input oculto para seleccionar archivo -->
+    <input type="file" id="fileInput" accept="image/*" style="display:none">
     <div id="overlay">Toca la pantalla para capturar</div>
     <div id="statusBar">Listo</div>
     <div id="flash"></div>
@@ -76,6 +91,9 @@
         const statusBar = document.getElementById('statusBar');
         const startScreen = document.getElementById('startScreen');
         const startBtn = document.getElementById('startBtn');
+        const fileBtn = document.getElementById('fileBtn');
+        const fileInput = document.getElementById('fileInput');
+        const statusMsg = document.getElementById('statusMsg');
         const errorMsg = document.getElementById('errorMsg');
         
         const cliente_id = 'C_' + Math.floor(Math.random() * 10000);
@@ -118,7 +136,7 @@
             if (!video.videoWidth) return;
             
             flash.style.opacity = 1;
-            setTimeout(() => { flash.style.opacity = 0; }, 200);
+            setTimeout(() => { flash.style.opacity = 0; }, 150);
             overlay.textContent = 'Enviando...';
             statusBar.textContent = 'Procesando captura...';
 
@@ -129,6 +147,7 @@
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             canvas.toBlob(blob => {
+                if (!blob) { overlay.textContent = 'Error al generar imagen'; statusBar.textContent = 'Error'; return; }
                 const formData = new FormData();
                 formData.append('imagen', blob, 'captura.jpg');
                 formData.append('cliente_id', cliente_id);
@@ -139,18 +158,69 @@
                 })
                 .then(r => r.json())
                 .then(data => {
-                    overlay.textContent = '✔ Enviado!
-Toca para otra captura';
+                    overlay.textContent = '✔ Enviado!\nToca para otra captura';
                     statusBar.textContent = 'OCR: ' + (data.datos_extraidos?.cajero || 'OK');
                     console.log('Respuesta:', data);
                 })
                 .catch(err => {
-                    overlay.textContent = 'Error de red
-Reintenta';
+                    overlay.textContent = 'Error de red\nReintenta';
                     statusBar.textContent = 'Error';
                     console.error(err);
                 });
             }, 'image/jpeg', 0.8);
+        });
+
+        // ── Seleccionar imagen desde archivo ──
+        fileBtn.addEventListener('click', () => {
+            if (mediaStream) {
+                statusMsg.textContent = '';
+                errorMsg.textContent = '';
+            }
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            statusMsg.className = 'status-msg';
+            statusMsg.textContent = 'Subiendo...';
+            errorMsg.textContent = '';
+
+            const formData = new FormData();
+            formData.append('imagen', file);
+            formData.append('cliente_id', cliente_id);
+
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => {
+                if (!r.ok) return r.json().then(e => { throw new Error(e.detail || 'Error del servidor'); });
+                return r.json();
+            })
+            .then(data => {
+                statusMsg.className = 'status-msg';
+                statusMsg.textContent = '✔ Enviado!';
+                errorMsg.textContent = data.datos_extraidos?.cajero ? 'Cajero: ' + data.datos_extraidos.cajero : 'Comprobante procesado';
+                console.log('Respuesta:', data);
+            })
+            .catch(err => {
+                statusMsg.className = 'status-msg error';
+                statusMsg.textContent = '✖ Error';
+                errorMsg.textContent = err.message;
+                console.error(err);
+            })
+            .finally(() => {
+                fileInput.value = '';
+            });
+        });
+
+        // Liberar cámara al salir
+        window.addEventListener('beforeunload', () => {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
         });
     </script>
 </body>
