@@ -2,11 +2,7 @@
 gemini_provider.py — Proveedor OCR usando Google Gemini API.
 
 Configuración auto-contenida en GeminiConfig.
-Parámetros desde .env:
-
-    GEMINI_API_KEY=           API key (obligatorio)
-    GEMINI_MODEL=             Modelo (default: gemini-2.0-flash)
-    GEMINI_TIMEOUT=30         Timeout en segundos
+Parámetros desde .env.
 """
 
 import json
@@ -15,8 +11,12 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from config.logger import get_logger
 from config.settings import PROJECT_ROOT
 from ocr.base import OCRProvider, OCRResult
+from utils.exceptions import OCRError
+
+logger = get_logger("gemini")
 
 
 @dataclass
@@ -66,25 +66,50 @@ class GeminiProvider(OCRProvider):
         from google import genai
 
         if not self.config.api_key:
-            raise RuntimeError("GEMINI_API_KEY no configurada en .env")
+            logger.error("GEMINI_API_KEY no configurada en .env")
+            raise OCRError(
+                proveedor="gemini",
+                causa="GEMINI_API_KEY no configurada en .env",
+            )
 
         client = genai.Client(api_key=self.config.api_key)
         imagen_path = Path(ruta_imagen)
         imagen_bytes = imagen_path.read_bytes()
 
-        response = client.models.generate_content(
-            model=self.config.model,
-            contents=[
-                SYSTEM_PROMPT,
-                genai.types.Part.from_bytes(
-                    data=imagen_bytes,
-                    mime_type="image/jpeg",
-                ),
-            ],
+        logger.debug(
+            "Enviando imagen a Gemini: %s (%d bytes)",
+            ruta_imagen, len(imagen_bytes),
         )
 
+        try:
+            response = client.models.generate_content(
+                model=self.config.model,
+                contents=[
+                    SYSTEM_PROMPT,
+                    genai.types.Part.from_bytes(
+                        data=imagen_bytes,
+                        mime_type="image/jpeg",
+                    ),
+                ],
+            )
+        except Exception as e:
+            error_type = type(e).__name__
+            logger.error("Gemini API error: %s — %s", error_type, str(e)[:300])
+            raise OCRError(
+                proveedor="gemini",
+                causa=f"{error_type}: {str(e)[:200]}",
+            ) from e
+
         texto_respuesta = response.text.strip()
+        logger.debug(
+            "Respuesta Gemini recibida (%d caracteres)", len(texto_respuesta)
+        )
         datos = self._parsear_json(texto_respuesta)
+        if not datos.get("cajero") and not datos.get("fecha"):
+            logger.warning(
+                "Gemini no devolvio campos estructurados — texto=%s",
+                texto_respuesta[:200],
+            )
 
         return OCRResult(
             cajero=datos.get("cajero"),
@@ -115,4 +140,5 @@ class GeminiProvider(OCRProvider):
             except json.JSONDecodeError:
                 pass
 
+        logger.warning("No se pudo parsear JSON de respuesta Gemini")
         return {"texto_completo": texto}

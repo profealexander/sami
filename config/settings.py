@@ -39,6 +39,14 @@ class Settings:
     # Valores: gemini, tesseract, ocrspace
     ocr_provider: str = "gemini"
 
+    # ── Validación de uploads ──
+    max_upload_size_mb: int = 10
+    allowed_extensions: str = ".jpg,.jpeg,.png,.webp"
+
+    # ── Logging ──
+    log_level: str = "INFO"
+    log_file: str = ""
+
     @classmethod
     def load(cls) -> "Settings":
         return cls(
@@ -46,6 +54,10 @@ class Settings:
             port=int(os.getenv("PORT", "8000")),
             upload_dir=os.getenv("UPLOAD_DIR", "uploads").strip(),
             ocr_provider=os.getenv("OCR_PROVIDER", "gemini").strip().lower(),
+            max_upload_size_mb=int(os.getenv("MAX_UPLOAD_SIZE_MB", "10")),
+            allowed_extensions=os.getenv("ALLOWED_EXTENSIONS", ".jpg,.jpeg,.png,.webp").strip(),
+            log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
+            log_file=os.getenv("LOG_FILE", "").strip(),
         )
 
     @property

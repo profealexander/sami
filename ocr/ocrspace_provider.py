@@ -2,12 +2,7 @@
 ocrspace_provider.py — Proveedor OCR usando OCR.space API.
 
 Configuración auto-contenida en OCRSpaceConfig.
-Parámetros desde .env:
-
-    OCRSPACE_API_KEY=          API key (obligatorio)
-    OCRSPACE_LANGUAGE=spa      Idioma
-    OCRSPACE_ENGINE=2          Engine OCR (1=legacy, 2=moderno)
-    OCRSPACE_TIMEOUT=30        Timeout en segundos
+Parámetros desde .env.
 """
 
 import base64
@@ -18,7 +13,11 @@ from pathlib import Path
 
 import requests
 
+from config.logger import get_logger
 from ocr.base import OCRProvider, OCRResult
+from utils.exceptions import OCRError
+
+logger = get_logger("ocrspace")
 
 
 API_URL = "https://api.ocr.space/parse/image"
@@ -54,22 +53,39 @@ class OCRSpaceProvider(OCRProvider):
 
     def extraer_campos(self, ruta_imagen: str) -> OCRResult:
         if not self.config.api_key:
-            raise RuntimeError("OCRSPACE_API_KEY no configurada en .env")
+            logger.error("OCRSPACE_API_KEY no configurada en .env")
+            raise OCRError(
+                proveedor="ocrspace",
+                causa="OCRSPACE_API_KEY no configurada en .env",
+            )
 
         with open(ruta_imagen, "rb") as f:
             imagen_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-        respuesta = requests.post(
-            API_URL,
-            data={
-                "apikey": self.config.api_key,
-                "language": self.config.language,
-                "base64Image": f"data:image/jpeg;base64,{imagen_b64}",
-                "isOverlayRequired": False,
-                "OCREngine": self.config.engine,
-            },
-            timeout=self.config.timeout,
+        logger.debug(
+            "Enviando a OCR.space: %s (%d KB)",
+            ruta_imagen, len(imagen_b64) // 1024,
         )
+
+        try:
+            respuesta = requests.post(
+                API_URL,
+                data={
+                    "apikey": self.config.api_key,
+                    "language": self.config.language,
+                    "base64Image": f"data:image/jpeg;base64,{imagen_b64}",
+                    "isOverlayRequired": False,
+                    "OCREngine": self.config.engine,
+                },
+                timeout=self.config.timeout,
+            )
+            respuesta.raise_for_status()
+        except requests.RequestException as e:
+            logger.error("OCR.space error de red: %s", str(e)[:300])
+            raise OCRError(
+                proveedor="ocrspace",
+                causa=f"Error HTTP: {str(e)[:200]}",
+            ) from e
 
         datos = respuesta.json()
 
@@ -77,13 +93,18 @@ class OCRSpaceProvider(OCRProvider):
             mensaje = datos.get("ErrorMessage", [{}])
             if isinstance(mensaje, list):
                 mensaje = mensaje[0].get("ErrorMessage", str(datos))
-            raise RuntimeError(f"OCR.space error: {mensaje}")
+            logger.error("OCR.space devolvio error: %s", mensaje)
+            raise OCRError(proveedor="ocrspace", causa=str(mensaje))
 
         resultados = datos.get("ParsedResults", [])
         if not resultados:
+            logger.warning("OCR.space no devolvio resultados")
             return OCRResult(texto_completo="", proveedor=self.nombre)
 
         texto_completo = resultados[0].get("ParsedText", "")
+        logger.debug(
+            "OCR.space OK — %d caracteres extraidos", len(texto_completo)
+        )
         campos = self._parsear_campos(texto_completo)
 
         return OCRResult(
@@ -101,23 +122,26 @@ class OCRSpaceProvider(OCRProvider):
             linea = linea.strip()
             if not linea:
                 continue
-            m = re.search(r'(?:CAJERO|ATENDIO|ATENDIÓ|CAJER@|VENDEDOR)\s*[:\-]?\s*(.+)', linea, re.IGNORECASE)
+            m = re.search(
+                r"(?:CAJERO|ATENDIO|ATENDIÓ|CAJER@|VENDEDOR)\s*[\:\-]?\s*(.+)",
+                linea, re.IGNORECASE
+            )
             if m and not datos["cajero"]:
                 datos["cajero"] = m.group(1).strip()
-            m = re.search(r'(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{2,4})', linea)
+            m = re.search(r"(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})", linea)
             if m and not datos["fecha"]:
                 d, mes, a = m.group(1), m.group(2), m.group(3)
                 if 1 <= int(d) <= 31 and 1 <= int(mes) <= 12:
                     datos["fecha"] = f"{int(d):02d}/{int(mes):02d}/{a}"
-            m = re.search(r'(\d{1,2}):(\d{2})(?::(\d{2}))?', linea)
+            m = re.search(r"(\d{1,2}):(\d{2})(?::(\d{2}))?", linea)
             if m and not datos["hora"]:
                 h, mi = int(m.group(1)), int(m.group(2))
                 if 0 <= h <= 23 and 0 <= mi <= 59:
                     datos["hora"] = f"{h:02d}:{mi:02d}"
             if not datos["no_venta"]:
                 for pat in [
-                    r'(?:VENTA|TICKET|FACTURA|COMPROBANTE)\s*[:\-]?\s*(\d[\d\-/]*)',
-                    r'(?:No\.?|N°|NUMERO)\s*[:\-]?\s*(\d[\d\-]*)',
+                    r"(?:VENTA|TICKET|FACTURA|COMPROBANTE)\s*[\:\-]?\s*(\d[\d\-/]*)",
+                    r"(?:No\.?|N°|NUMERO)\s*[\:\-]?\s*(\d[\d\-]*)",
                 ]:
                     m = re.search(pat, linea, re.IGNORECASE)
                     if m:

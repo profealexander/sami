@@ -8,8 +8,11 @@ Configuración en .env:
 import os
 from pathlib import Path
 
+from config.logger import get_logger
 from config.settings import settings, PROJECT_ROOT
 from storage.base import StorageProvider
+
+logger = get_logger("storage.local")
 
 
 class LocalStorageProvider(StorageProvider):
@@ -24,5 +27,5 @@ class LocalStorageProvider(StorageProvider):
         ruta_absoluta = PROJECT_ROOT / ruta_relativa
         ruta_absoluta.parent.mkdir(parents=True, exist_ok=True)
         ruta_absoluta.write_bytes(imagen_bytes)
-        print(f"[SAMI] Imagen guardada en disco: {ruta_relativa}")
+        logger.info("Imagen guardada: %s (%d KB)", ruta_relativa, len(imagen_bytes) // 1024)
         return ruta_relativa

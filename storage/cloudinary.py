@@ -3,8 +3,11 @@ cloudinary.py — Almacenamiento en Cloudinary.
 Activo solo cuando STORAGE_BACKEND=cloudinary en .env.
 """
 
+from config.logger import get_logger
 from storage.base import StorageProvider
 from config.server import server_config
+
+logger = get_logger("storage.cloudinary")
 
 
 class CloudinaryStorageProvider(StorageProvider):
@@ -25,5 +28,5 @@ class CloudinaryStorageProvider(StorageProvider):
             resource_type="image",
         )
         url = resultado["secure_url"]
-        print(f"[SAMI] Imagen subida a Cloudinary: {url}")
+        logger.info("Imagen subida a Cloudinary: %s", url)
         return url

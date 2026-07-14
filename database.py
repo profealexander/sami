@@ -9,7 +9,10 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 
+from config.logger import get_logger
 from config.server import server_config
+
+logger = get_logger("database")
 
 
 # ── Motor: SQLite o PostgreSQL segun DATABASE_URL ──
@@ -52,6 +55,7 @@ class Comprobante(Base):
 
 # Crear tablas si no existen
 Base.metadata.create_all(bind=engine)
+logger.info("Tablas verificadas/creadas — motor=%s", DATABASE_URL.split("://")[0])
 
 
 def get_db():

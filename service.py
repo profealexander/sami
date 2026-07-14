@@ -11,9 +11,13 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from config.logger import get_logger
 from database import Comprobante
 from ocr import get_ocr_engine
 from storage import get_storage_backend
+from utils.exceptions import OCRError
+
+logger = get_logger("service")
 
 
 def guardar_imagen_fisica(imagen_bytes: bytes, extension: str) -> str:
@@ -23,7 +27,9 @@ def guardar_imagen_fisica(imagen_bytes: bytes, extension: str) -> str:
     """
     nombre_archivo = f"{uuid.uuid4().hex}{extension}"
     backend = get_storage_backend()
-    return backend.guardar(imagen_bytes, nombre_archivo)
+    ruta = backend.guardar(imagen_bytes, nombre_archivo)
+    logger.info("Imagen guardada: %s (backend=%s)", ruta, backend.nombre)
+    return ruta
 
 
 def procesar_y_guardar_comprobante(
@@ -51,8 +57,22 @@ def procesar_y_guardar_comprobante(
     # 3. Ejecutar OCR
     try:
         resultado = engine.extraer_campos(ruta_absoluta)
+        logger.info(
+            "OCR exitoso — proveedor=%s | cajero=%s | fecha=%s",
+            engine.nombre,
+            resultado.cajero or "N/A",
+            resultado.fecha or "N/A",
+        )
+    except OCRError:
+        # Relanzar errores específicos de OCR (ya logueados)
+        raise
     except Exception as e:
-        print(f"[SAMI] Error OCR en {ruta_imagen}: {e}")
+        logger.error(
+            "Error OCR en %s — tipo=%s | msg=%s",
+            ruta_imagen,
+            type(e).__name__,
+            str(e)[:300],
+        )
         resultado = None
 
     # 4. Limpiar temporal si se descargo de S3/Cloudinary
@@ -79,9 +99,14 @@ def procesar_y_guardar_comprobante(
     db.commit()
     db.refresh(nuevo_comprobante)
 
-    print(f"[SAMI] Comprobante #{nuevo_comprobante.id} | "
-          f"cliente={cliente_id} | OCR={engine.nombre} | "
-          f"cajero={cajero} | fecha={fecha}")
+    logger.info(
+        "Comprobante #%s registrado | cliente=%s | OCR=%s | cajero=%s | fecha=%s",
+        nuevo_comprobante.id,
+        cliente_id,
+        engine.nombre,
+        cajero,
+        fecha,
+    )
 
     return nuevo_comprobante
 
@@ -98,6 +123,7 @@ def _resolver_ruta_imagen(ruta_imagen: str) -> str:
     import requests
     import tempfile
 
+    logger.info("Descargando imagen remota: %s", ruta_imagen)
     resp = requests.get(ruta_imagen, timeout=30)
     resp.raise_for_status()
 
@@ -114,3 +140,4 @@ def _limpiar_temporal(ruta_absoluta: str, ruta_original: str) -> None:
 
     if server_config.storage_backend != "local" and os.path.exists(ruta_absoluta):
         os.remove(ruta_absoluta)
+        logger.debug("Temporal eliminado: %s", ruta_absoluta)

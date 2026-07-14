@@ -3,9 +3,11 @@ s3.py — Almacenamiento en Amazon S3 (o compatible).
 Activo solo cuando STORAGE_BACKEND=s3 en .env.
 """
 
-import os
+from config.logger import get_logger
 from storage.base import StorageProvider
 from config.server import server_config
+
+logger = get_logger("storage.s3")
 
 
 class S3StorageProvider(StorageProvider):
@@ -37,5 +39,5 @@ class S3StorageProvider(StorageProvider):
             ContentType=f"image/{nombre_archivo.split('.')[-1]}",
         )
         url = f"https://{cfg.s3_bucket}.s3.{cfg.s3_region}.amazonaws.com/{key}"
-        print(f"[SAMI] Imagen subida a S3: {url}")
+        logger.info("Imagen subida a S3: %s", url)
         return url

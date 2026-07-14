@@ -11,12 +11,22 @@ Uso:
 """
 
 import uvicorn
+from config.logger import setup_logging, get_logger
 from config.server import server_config
+from config.settings import settings, PROJECT_ROOT
 
 if __name__ == "__main__":
-    print(f"[SAMI] Iniciando servidor - entorno: {server_config.env}")
-    print(f"[SAMI] BD: {server_config.database_url}")
-    print(f"[SAMI] Storage: {server_config.storage_backend}")
+    # Inicializar logging ANTES de cualquier otro mensaje
+    setup_logging(
+        level=settings.log_level,
+        log_file=settings.log_file if settings.log_file else None,
+        project_root=PROJECT_ROOT,
+    )
+
+    logger = get_logger("run")
+    logger.info("Iniciando servidor — entorno: %s", server_config.env)
+    logger.info("BD: %s", server_config.database_url)
+    logger.info("Storage: %s", server_config.storage_backend)
 
     uvicorn.run(
         "main:app",
