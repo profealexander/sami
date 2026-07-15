@@ -168,6 +168,8 @@ async def subir_comprobante(
         response_data = {
             "status": "success",
             "mensaje": "Comprobante procesado y guardado",
+            "ocr_exitoso": respuesta.ocr_exitoso,
+            "proveedor_ocr": respuesta.proveedor_ocr,
             "datos_extraidos": {
                 "cajero": registro.cajero,
                 "fecha": registro.fecha_comprobante,

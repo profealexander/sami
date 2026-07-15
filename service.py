@@ -32,6 +32,8 @@ class ComprobanteResponse:
     registro: Comprobante
     monto: str | None
     destinatario: str | None
+    ocr_exitoso: bool
+    proveedor_ocr: str | None
 
 
 def guardar_imagen_fisica(imagen_bytes: bytes, extension: str) -> str:
@@ -126,12 +128,8 @@ def procesar_y_guardar_comprobante(
         registro=nuevo_comprobante,
         monto=monto,
         destinatario=destinatario,
-    )
-
-    return ComprobanteResponse(
-        registro=nuevo_comprobante,
-        monto=monto,
-        destinatario=destinatario,
+        ocr_exitoso=resultado is not None,
+        proveedor_ocr=engine.nombre if resultado else None,
     )
 
 
