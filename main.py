@@ -5,7 +5,7 @@ Rutas, CORS, validacion de uploads y montaje de estaticos.
 Delega la logica de negocio a service.py.
 """
 
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request, Header
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,8 +22,13 @@ from utils.upload_validator import (
     validar_cliente_id,
     sanitizar_filename,
 )
+from utils.auth import validar_api_key
+from utils.rate_limiter import RateLimiter
 
 logger = get_logger("api")
+
+# ── Rate limiter global ──
+_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)
 
 # ── Configurar validador de uploads ──
 configure_validator(
@@ -33,6 +38,9 @@ configure_validator(
 
 app = FastAPI(title="SAMI - Servidor de Comprobantes OCR")
 
+# Validar CORS en producción
+if server_config.env == "production" and server_config.cors_origins == ["*"]:
+    logger.warning("CORS * configurado en producción — riesgo de seguridad. Configurar CORS_ORIGINS explícito.")
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,9 +67,11 @@ def leer_index():
 
 @app.post("/api/upload", description="Sube una foto de comprobante y extrae su texto mediante OCR")
 async def subir_comprobante(
+    request: Request,
     imagen: UploadFile = File(..., description="Imagen del comprobante en formato JPG, PNG o WebP"),
     cliente_id: str = Form(..., description="Identificador unico del cliente, tienda o cajero (ej: 'tienda_001')"),
     db: Session = Depends(get_db),
+    x_api_key: str = Header(default=""),
 ):
     """Endpoint principal de captura de comprobantes.
 
@@ -73,6 +83,15 @@ async def subir_comprobante(
     (gemini, tesseract u ocrspace). Si falla, cae automaticamente
     a Tesseract como fallback local.
     """
+    # Rate limiting
+    client_ip = request.client.host if request and request.client else "unknown"
+    if not _rate_limiter.permitir(client_ip):
+        raise HTTPException(status_code=429, detail="Rate limit excedido. Intente mas tarde.")
+
+    # Autenticación (solo en producción)
+    if server_config.env == "production" and not validar_api_key(x_api_key):
+        raise HTTPException(status_code=401, detail="API key inválida")
+
     cliente_id = cliente_id.strip()
     if not cliente_id:
         raise HTTPException(
@@ -83,9 +102,10 @@ async def subir_comprobante(
 
     try:
         contenido = await imagen.read()
+        safe_filename = (imagen.filename or "unknown").replace("\n", "").replace("\r", "")
         logger.info(
             "Upload recibido — filename=%s | size=%d KB | cliente=%s",
-            imagen.filename,
+            safe_filename,
             len(contenido) // 1024,
             cliente_id,
         )
@@ -116,9 +136,9 @@ async def subir_comprobante(
         # Incluir campos extendidos si existen
         monto = getattr(registro, "_monto", None)
         destinatario = getattr(registro, "_destinatario", None)
-        if monto:
+        if monto is not None:
             response_data["datos_extraidos"]["monto"] = monto
-        if destinatario:
+        if destinatario is not None:
             response_data["datos_extraidos"]["destinatario"] = destinatario
 
         return response_data

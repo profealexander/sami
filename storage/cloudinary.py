@@ -6,6 +6,7 @@ Activo solo cuando STORAGE_BACKEND=cloudinary en .env.
 from config.logger import get_logger
 from storage.base import StorageProvider
 from config.server import server_config
+from utils.exceptions import StorageError
 
 logger = get_logger("storage.cloudinary")
 
@@ -23,12 +24,15 @@ class CloudinaryStorageProvider(StorageProvider):
         import cloudinary
         import cloudinary.uploader
 
-        cloudinary.config(cloudinary_url=server_config.cloudinary_url)
-        resultado = cloudinary.uploader.upload(
-            imagen_bytes,
-            public_id=f"comprobantes/{nombre_archivo.split('.')[0]}",
-            resource_type="image",
-        )
-        url = resultado["secure_url"]
-        logger.info("Imagen subida a Cloudinary: %s", url)
-        return url
+        try:
+            cloudinary.config(cloudinary_url=server_config.cloudinary_url)
+            resultado = cloudinary.uploader.upload(
+                imagen_bytes,
+                public_id=f"comprobantes/{nombre_archivo.split('.')[0]}",
+                resource_type="image",
+            )
+            url = resultado["secure_url"]
+            logger.info("Imagen subida a Cloudinary: %s", url)
+            return url
+        except Exception as e:
+            raise StorageError(mensaje=f"Error subiendo a Cloudinary: {e}", backend="cloudinary") from e

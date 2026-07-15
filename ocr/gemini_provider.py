@@ -17,6 +17,20 @@ from utils.exceptions import OCRError
 
 logger = get_logger("gemini")
 
+# Singleton para cliente Gemini (reutiliza conexión HTTP)
+_gemini_client = None
+_gemini_api_key = None
+
+
+def _obtener_cliente_gemini(api_key: str):
+    """Retorna cliente Gemini singleton, creándolo solo si cambia la API key."""
+    global _gemini_client, _gemini_api_key
+    from google import genai
+    if _gemini_client is None or _gemini_api_key != api_key:
+        _gemini_client = genai.Client(api_key=api_key)
+        _gemini_api_key = api_key
+    return _gemini_client
+
 
 @dataclass
 class GeminiConfig:
@@ -74,7 +88,8 @@ class GeminiProvider(OCRProvider):
                 causa="GEMINI_API_KEY no configurada en .env",
             )
 
-        client = genai.Client(api_key=self.config.api_key)
+        # Singleton: reutilizar cliente HTTP
+        client = _obtener_cliente_gemini(self.config.api_key)
         imagen_path = Path(ruta_imagen)
         imagen_bytes = imagen_path.read_bytes()
 
@@ -83,6 +98,11 @@ class GeminiProvider(OCRProvider):
             ruta_imagen, len(imagen_bytes),
         )
 
+        # Detectar MIME type desde extensión
+        from pathlib import Path
+        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+        mime = mime_map.get(Path(ruta_imagen).suffix.lower(), "image/jpeg")
+
         try:
             response = client.models.generate_content(
                 model=self.config.model,
@@ -90,7 +110,7 @@ class GeminiProvider(OCRProvider):
                     SYSTEM_PROMPT,
                     genai.types.Part.from_bytes(
                         data=imagen_bytes,
-                        mime_type="image/jpeg",
+                        mime_type=mime,
                     ),
                 ],
             )

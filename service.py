@@ -8,7 +8,7 @@ NO contiene logica directa de OCR ni de almacenamiento.
 import os
 import tempfile
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 
@@ -51,10 +51,12 @@ def procesar_y_guardar_comprobante(
         Comprobante registrado en BD
     """
     engine = get_ocr_engine()
-    ruta_absoluta = _resolver_ruta_imagen(ruta_imagen)
+    ruta_absoluta = None
+    resultado = None
 
-    # ── Ejecutar OCR ──
+    # ── Ejecutar OCR con limpieza garantizada ──
     try:
+        ruta_absoluta = _resolver_ruta_imagen(ruta_imagen)
         resultado = engine.extraer_campos(ruta_absoluta)
         logger.info(
             "OCR exitoso — proveedor=%s | cajero=%s | fecha=%s | monto=%s",
@@ -73,8 +75,8 @@ def procesar_y_guardar_comprobante(
             str(e)[:300],
         )
         resultado = None
-
-    _limpiar_temporal(ruta_absoluta, ruta_imagen)
+    finally:
+        _limpiar_temporal(ruta_absoluta, ruta_imagen)
 
     # ── Valores por defecto si OCR falló ──
     cajero = resultado.cajero if resultado and resultado.cajero else "OCR no disponible"
@@ -89,7 +91,7 @@ def procesar_y_guardar_comprobante(
         hora_comprobante=hora,
         no_venta=no_venta,
         cliente_id=cliente_id,
-        fecha_envio=datetime.now(),
+        fecha_envio=datetime.now(timezone.utc),
         ruta_imagen=ruta_imagen,
     )
 

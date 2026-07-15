@@ -2,8 +2,10 @@ services:
   sami:
     build: .
     ports:
-      - "7000:7000"
+      - "${PORT:-8000}:8000"
     env_file: .env
+    environment:
+      - ENV=production
     volumes:
       - sami_uploads:/app/uploads
       - sami_data:/app/data
@@ -11,13 +13,18 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: sami
       POSTGRES_USER: sami
-      POSTGRES_PASSWORD: sami_secret
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configurar POSTGRES_PASSWORD en .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

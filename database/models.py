@@ -5,7 +5,7 @@ Separa la definición de las tablas de la config del engine.
 Cada modelo hereda de Base (definida en database.engine).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, String, DateTime
 
@@ -29,7 +29,7 @@ class Comprobante(Base):
 
     # Metadatos del envio
     cliente_id = Column(String, index=True)
-    fecha_envio = Column(DateTime, default=datetime.utcnow)
+    fecha_envio = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Respaldo: ruta o URL de la imagen original
     ruta_imagen = Column(String)
