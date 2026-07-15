@@ -145,7 +145,7 @@ def sanitizar_filename(filename: str) -> str:
     nombre = Path(filename).name
 
     # Reemplazar caracteres peligrosos
-    caracteres_peligrosos = "/\:*?\"<>|"
+    caracteres_peligrosos = "/\\:*?\"<>|"
     for c in caracteres_peligrosos:
         nombre = nombre.replace(c, "_")
 
