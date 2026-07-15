@@ -27,7 +27,7 @@ class ServerConfig:
     workers: int = 1
     reload: bool = True
     log_level: str = "info"
-    cors_origins: list = None
+    cors_origins: list | None = None
 
     # ── Base de datos ──
     database_url: str = "sqlite:///./comprobantes.db"
