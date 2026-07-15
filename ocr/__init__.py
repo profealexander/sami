@@ -12,8 +12,12 @@ Proveedores disponibles (según OCR_PROVIDER en .env):
     tesseract → solo Tesseract local (sin internet)
 """
 
+import os
 from config.settings import settings
 from ocr.base import OCRProvider
+from config.logger import get_logger
+
+logger = get_logger("ocr.factory")
 
 # Registro dinámico de proveedores
 _REGISTRO_OCR: dict[str, type[OCRProvider]] = {}
@@ -22,6 +26,14 @@ _REGISTRO_OCR: dict[str, type[OCRProvider]] = {}
 def registrar_ocr(nombre: str, clase: type[OCRProvider]):
     """Registra un proveedor OCR en la factoría."""
     _REGISTRO_OCR[nombre] = clase
+
+
+def _validar_configuracion(provider: str):
+    """Valida que las API keys necesarias estén configuradas."""
+    if provider == "gemini" and not os.getenv("GEMINI_API_KEY"):
+        logger.warning("GEMINI_API_KEY no configurada — Gemini OCR no funcionará")
+    elif provider == "ocrspace" and not os.getenv("OCRSPACE_API_KEY"):
+        logger.warning("OCRSPACE_API_KEY no configurada — OCR.space no funcionará")
 
 
 def get_ocr_engine() -> OCRProvider:
@@ -38,6 +50,7 @@ def get_ocr_engine() -> OCRProvider:
         registrar_ocr("tesseract", TesseractProvider)
 
     provider = settings.ocr_provider.lower()
+    _validar_configuracion(provider)
 
     if provider == "tesseract":
         return TesseractProvider()

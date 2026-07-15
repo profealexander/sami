@@ -78,7 +78,7 @@ class ServerConfig:
 
         return cls(
             env=env,
-            host=os.getenv("HOST", "0.0.0.0").strip(),
+            host=os.getenv("HOST", "127.0.0.1" if env == "development" else "0.0.0.0").strip(),
             port=int(os.getenv("PORT", "8000")),
             workers=int(os.getenv("WORKERS", str(workers_default))),
             reload=os.getenv("RELOAD", str(reload_default)).lower() == "true",

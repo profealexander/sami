@@ -9,6 +9,9 @@ Uso:
 
 from config.server import server_config
 from storage.base import StorageProvider
+from config.logger import get_logger
+
+logger = get_logger("storage.factory")
 
 # Registro dinámico de backends
 _REGISTRO_STORAGE: dict[str, type[StorageProvider]] = {}
@@ -17,6 +20,18 @@ _REGISTRO_STORAGE: dict[str, type[StorageProvider]] = {}
 def registrar_storage(nombre: str, clase: type[StorageProvider]):
     """Registra un backend de almacenamiento en la factoría."""
     _REGISTRO_STORAGE[nombre] = clase
+
+
+def _validar_configuracion(backend: str):
+    """Valida que las credenciales necesarias estén configuradas."""
+    if backend == "s3":
+        if not server_config.s3_access_key:
+            logger.warning("S3_ACCESS_KEY no configurada — S3 no funcionará")
+        if not server_config.s3_bucket:
+            logger.warning("S3_BUCKET no configurada — S3 no funcionará")
+    elif backend == "cloudinary":
+        if not server_config.cloudinary_url:
+            logger.warning("CLOUDINARY_URL no configurada — Cloudinary no funcionará")
 
 
 def get_storage_backend() -> StorageProvider:
@@ -31,6 +46,8 @@ def get_storage_backend() -> StorageProvider:
         registrar_storage("cloudinary", CloudinaryStorageProvider)
 
     backend = server_config.storage_backend.lower()
+    _validar_configuracion(backend)
+
     cls = _REGISTRO_STORAGE.get(backend)
     if not cls:
         raise ValueError(
