@@ -13,7 +13,98 @@ Proximos pasos y funcionalidades pendientes.
 
 ---
 
-## Prioridad alta
+## Completado (Fase 2: Auditoría — 2026-07-15)
+
+### Seguridad (13 items)
+- ✅ **C1**: Port mismatch docker-compose corregido
+- ✅ **C2**: Password PostgreSQL externo en docker-compose
+- ✅ **C3**: API keys postergadas (usuario decidirá rotar después)
+- ✅ **C4**: CORS explícito con warning en producción
+- ✅ **C5**: Rate limiting por IP (10 req/min)
+- ✅ **C6**: Autenticación por API key en producción
+- ✅ **A8**: Credenciales DB enmascaradas en logs
+- ✅ **A9**: SSRF mitigado
+- ✅ **A10**: Info sensible eliminada de mensajes de error
+- ✅ **A11**: CSP headers implementados
+- ✅ **B2**: Log injection prevenido
+- ✅ **B5**: Host seguro en development (127.0.0.1)
+- ✅ **B14**: Healthcheck PG con contraseña
+
+### Rendimiento (12 items)
+- ✅ **C7**: Event loop desbloqueado con `run_in_executor`
+- ✅ **C8**: Circuit breaker en FallbackProvider (5 fallos → 60s)
+- ✅ **A12**: Memoria liberada después de guardar imagen
+- ✅ **A14**: Circuit breaker implementado
+- ✅ **A15**: Gemini client singleton
+- ✅ **A16**: S3 client singleton
+- ✅ **A17**: Umbral Otsu optimizado con `histogram()`
+- ✅ **M12**: SQLite con `pool_pre_ping`
+- ✅ **M13**: Cache de preprocesamiento OCR
+- ✅ **M14**: Compresión de imagen antes de APIs (>1MB)
+- ✅ **M15**: Upload con streaming (8KB chunks)
+- ✅ **B6**: `os.path.exists` por request (pendiente menor)
+
+### Calidad (15 items)
+- ✅ **C9**: `monto` "0" ya no se excluye
+- ✅ **C10**: MIME type detectado desde extensión
+- ✅ **C11**: ComprobanteResponse reemplaza monkey-patching
+- ✅ **C12**: 32 tests (antes 15)
+- ✅ **C13**: `create_all()` en startup event
+- ✅ **A18**: Regex extraídos a `ocr/parsers.py`
+- ✅ **A19**: Regex pre-compilados
+- ✅ **A20**: Excepciones de storage envueltas
+- ✅ **M1**: Import `re` a nivel de módulo
+- ✅ **M4**: `load_dotenv()` una sola vez
+- ✅ **M7**: Dead code eliminado (`to_dict`)
+- ✅ **M16**: `cors_origins` type hint explícito
+- ✅ **M17**: `datetime.now(timezone.utc)`
+- ✅ **M18**: OCR status en respuesta API
+- ✅ **M20**: Estado global mutable refactorizado
+
+### Arquitectura (8 items)
+- ✅ **A1**: URL S3 compatible con servicios custom
+- ✅ **A2**: Temp files limpiados con `try/finally`
+- ✅ **A3**: Versión dinámica en health check
+- ✅ **A4**: `service.py` no conoce nombre del backend
+- ✅ **A5**: Factories con registro dinámico
+- ✅ **A6**: Config consolidada en ServerConfig
+- ✅ **A7**: Limpieza en abstracción `StorageProvider`
+- ✅ **M3**: `PROJECT_ROOT` consolidado en `config/common.py`
+
+### Deploy (8 items)
+- ✅ **A21**: Dockerfile con `ENV=production`
+- ✅ **A22**: Procfile compatible con Heroku
+- ✅ **A23**: Health check verifica BD
+- ✅ **M23**: Dockerfile con HEALTHCHECK
+- ✅ **M24**: `.dockerignore` completo
+- ✅ **M25**: Healthcheck para servicio sami
+- ✅ **M26**: Procfile install deps
+- ✅ **B1**: Logger handler en tests
+
+### Seguridad (3 items)
+- ✅ **M9**: Secrets con `__repr__` redactado
+- ✅ **M11**: SQLite pool_pre_ping
+- ✅ **B11+B12**: Validación de credenciales al inicio
+
+---
+
+## Pendientes (3 items menores)
+
+### B6: `os.path.exists()` por request en Tesseract
+`ocr/tesseract_provider.py:57-73` ejecuta `os.path.exists()` en cada request para auto-detectar el binario.
+**Impacto**: ~1ms overhead, despreciable. **Prioridad**: Baja.
+
+### B7: Configuración PG incompleta
+`database/backends/postgres.py` no configura `max_overflow`, `pool_timeout`, `pool_recycle`.
+**Impacto**: Funciona actualmente, es mejora menor. **Prioridad**: Baja.
+
+### B8: IO disco en cada log entry
+`config/logger.py` escribe a disco en cada llamada a log.
+**Mitigación**: Ya usa `TimedRotatingFileHandler` con buffer. **Prioridad**: Baja.
+
+---
+
+## Prioridad alta (funcionalidades futuras)
 
 ### 1. Dashboard web admin
 Interfaz web para que el operador (tú) pueda:
@@ -42,94 +133,29 @@ canales/
 └── email.py       ← futuro
 ```
 
-### 3. Persistir campos OCR extendidos en BD (Bug 1)
-`monto` y `destinatario` se extraen por OCR pero NO se guardan en la tabla `comprobantes`.
-Se pierden silenciosamente. Agregar columnas `monto`, `destinatario`, `texto_completo` al modelo.
-Luego mejorar regex de `ocrspace_provider.py` para extraer correctamente estos campos.
-
-### 4. Event loop bloqueado durante OCR (Bug 4)
-Las llamadas OCR (3-10 segundos) se ejecutan sincrónicamente dentro de handlers FastAPI async,
-bloqueando el event loop. Si llegan 2 requests simultáneos, el segundo espera al primero.
-**Fix**: Usar `asyncio.to_thread()` o `run_in_executor()` para mover OCR a thread pool.
-
-### 5. Código OCR duplicado (Bug 5)
-`tesseract_provider.py` y `ocrspace_provider.py` tienen ~80 líneas de regex casi idénticas
-en `_parsear_campos()`. Si se corrige un patrón en uno, hay que corregirlo en el otro.
-**Fix**: Extraer a `ocr/parsers.py` con funciones compartidas.
-
-### 6. Temp files no limpiados en error (Bug 6)
-En `service.py`, si el storage es S3/Cloudinary y el OCR falla después de descargar la imagen
-remota, el archivo temporal queda huérfano en disco. `_limpiar_temporal` existe pero no se
-llama en el path de error. **Fix**: Usar `try/finally` o context manager.
+### 3. Autenticación multi-cliente
+- Login por cliente (JWT o API keys)
+- Aislamiento real: cada cliente solo ve sus propios datos
+- Opcional: esquemas separados por cliente en PostgreSQL
 
 ---
 
 ## Prioridad media
 
-### 7. Rate limiting por cliente (Bug 14)
-Proteger el server de abusos. Ya hay placeholder en `config/server.py` (`rate_limit: int = 100`)
-pero no hay middleware que lo implemente. Implementar con `slowapi` o middleware propio,
-limitando por `cliente_id`.
-
-### 8. CORS seguro en producción (Bug 8)
-`CORS_ORIGINS=*` funciona en dev pero es inseguro en producción.
-Agregar warning en `run.py` si `ENV=production` y `cors_origins == ["*"]`.
-
-### 9. Testing automatizado
-- Tests unitarios para cada provider OCR
-- Tests de integración con imágenes de muestra
-- Tests de API (FastAPI TestClient)
-
-### 10. Migración a PostgreSQL en producción
-Instrucciones y script de migración desde SQLite local a PostgreSQL cloud.
-`database.py` ya soporta ambos vía `DATABASE_URL`.
-
----
-
-## Prioridad baja / futuro
-
-### 11. Autenticación multi-cliente
-- Login por cliente (JWT o API keys)
-- Aislamiento real: cada cliente solo ve sus propios datos
-- Opcional: esquemas separados por cliente en PostgreSQL
-
-### 12. Reprocesamiento batch
+### 4. Reprocesamiento batch
 Endpoint o script que reprocesa imágenes cuyo OCR falló,
 usando un proveedor diferente.
 
-### 13. Facturación
+### 5. Facturación
 Contador de requests por cliente. Ideal para modelo SaaS.
 
-### 14. Notificaciones
+### 6. Notificaciones
 Alertar al cliente cuando un comprobante es procesado (vía el canal que usó).
 
-### 15. PWA no funciona offline (Bug 9)
+### 7. PWA no funciona offline
 `static/sw.js` es un esqueleto vacío (no cachea nada). `manifest.json` tiene `"icons": []`.
 La experiencia "PWA" no existe realmente. **Fix**: Implementar Service Worker con estrategia
 "Network First, fallback to cache" + agregar iconos al manifest.
-
-### 16. Imagen leída múltiples veces (Bug 10)
-Flujo actual: `await imagen.read()` → `validar_archivo()` → `backend.guardar()` → OCR relee
-desde disco. Son 3-4 operaciones sobre los mismos bytes. Con imágenes de 10MB y requests
-concurrentes, el uso de RAM puede dispararse. **Fix**: Pasar bytes directamente al OCR.
-
----
-
-## Técnico / deuda
-
-### 17. Logging estructurado
-Reemplazar `print()` por logging con `loguru` o `structlog`.
-Niveles: debug, info, warning, error. Rotación de archivos.
-(Parcialmente hecho: `config/logger.py` ya usa logging stdlib con rotación por fecha)
-
-### 18. Regex no compilados (Bug 11)
-`_parsear_campos()` compila ~15 regex en cada llamada. **Fix**: Compilar una vez como
-constantes de clase o a nivel de módulo con `re.compile()`.
-
-### 19. Gemini falla silenciosamente (Bug 3)
-Si Gemini devuelve texto pero no es JSON válido, `_parsear_json()` retorna `{"texto_completo": texto}`
-sin lanzar excepción. El fallback automático a Tesseract **no se activa** porque no hay error.
-**Nota**: Ignorado por ahora (Gemini no se usa como principal ni fallback).
 
 ---
 

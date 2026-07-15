@@ -1,25 +1,27 @@
 # SAMI - Sistema de Archivo y Manejo de Imagenes de Comprobantes
 
 > Captura de comprobantes desde el telefono, OCR multi-proveedor y almacenamiento local.
-> **v2.0.0** - Multi-tenant, configurable por entorno, despliegue flexible.
+> **v2.1.0** - Multi-tenant, configurable por entorno, despliegue flexible, auditoria completada.
 
 ---
 
 ## Arquitectura (3 capas + infraestructura)
 
 ```
-Capa 1:  main.py              Controlador FastAPI (rutas, CORS, PWA)
+Capa 1:  main.py              Controlador FastAPI (rutas, CORS, CSP, PWA)
 Capa 2:  service.py           Logica de negocio (OCR + almacenamiento + BD)
 Capa 3:  database/            Repositorio SQLite / PostgreSQL (backend intercambiable)
 
-Infra:   config/              server.py + settings.py (entorno, BD, storage)
+Infra:   config/              server.py + settings.py + common.py (entorno, BD, storage)
          ocr/                 Motores OCR intercambiables (gemini, tesseract, ocrspace)
+         storage/             Backends de almacenamiento (local, s3, cloudinary)
+         utils/               Auth, rate limiting, validacion, excepciones
          run.py               Entry point unico
 ```
 
 Cada capa documenta su arquitectura interna en su propio README:
 - `database/README.md` — Motores de BD, modelos, como anadir uno nuevo
-- `ocr/PROVEEDORES_OCR.md` — Proveedores OCR, configuracion, fallback
+- `ocr/PROVEEDORES_OCR.md` — Proveedores OCR, configuracion, fallback, circuit breaker
 
 ---
 
@@ -32,9 +34,23 @@ Cada capa documenta su arquitectura interna en su propio README:
 | OCR.space | OCR_PROVIDER=ocrspace | API cloud | 25,000 req/mes |
 
 **gemini** es el principal. Si falla (cuota agotada, sin internet) **cae automaticamente a Tesseract** como fallback local.
-Cada proveedor tiene su propia config en ocr/*_provider.py con parametros desde .env.
+Incluye **circuit breaker** que bloquea el proveedor primario tras 5 fallos consecutivos por 60 segundos.
 
-Documentacion detallada en: `ocr/PROVEEDORES_OCR.md`
+Cada proveedor tiene su propia config en ocr/*_provider.py con parametros desde .env.
+Los parsers compartidos con regex pre-compilados estan en `ocr/parsers.py`.
+
+---
+
+## Seguridad
+
+| Caracteristica | Implementacion |
+|---|---|
+| Autenticacion | API key via header `X-Api-Key` (solo production) |
+| Rate limiting | 10 requests/min por IP en `/api/upload` |
+| CORS | Configurable via `CORS_ORIGINS` (warning si `*` en production) |
+| CSP Headers | Content-Security-Policy, X-Content-Type-Options, X-Frame-Options |
+| Docker | USER no-root, healthcheck, .dockerignore |
+| Secrets | Enmascarados en logs y `__repr__` |
 
 ---
 
@@ -45,7 +61,7 @@ Documentacion detallada en: `ocr/PROVEEDORES_OCR.md`
 | development | Local (tu PC, pendrive) | `python run.py` |
 | production | VPS / Railway / Render | `ENV=production python run.py` |
 
-Diferencia: produccion usa mas workers, sin reload, logs minimos, CORS restringido.
+Diferencia: produccion usa mas workers, sin reload, logs minimos, CORS restringido, auth activo.
 
 ---
 
@@ -55,18 +71,20 @@ Diferencia: produccion usa mas workers, sin reload, logs minimos, CORS restringi
 | Variable | Descripcion | Default |
 |---|---|---|
 | ENV | development o production | development |
-| HOST | IP del servidor | 0.0.0.0 |
+| HOST | IP del servidor | 127.0.0.1 (dev) / 0.0.0.0 (prod) |
 | PORT | Puerto | 8000 |
 | WORKERS | Workers (4 en prod, 1 en dev) | auto |
 | RELOAD | Hot-reload (solo dev) | auto |
 | LOG_LEVEL | info / warning / error | auto |
 | CORS_ORIGINS | Origenes permitidos (* o lista) | * |
+| SAMI_API_KEY | API key para autenticacion (production) | - |
 
 ### Base de datos
 | Variable | Descripcion | Default |
 |---|---|---|
 | DATABASE_URL | sqlite:///... o postgresql://... | sqlite:///./comprobantes.db |
 | DB_POOL_SIZE | Pool de conexiones PostgreSQL | 10 |
+| POSTGRES_PASSWORD | Password PostgreSQL (docker-compose) | - |
 
 ### Almacenamiento
 | Variable | Descripcion | Default |
@@ -76,7 +94,15 @@ Diferencia: produccion usa mas workers, sin reload, logs minimos, CORS restringi
 | S3_REGION | Region AWS | - |
 | S3_ACCESS_KEY | Access key S3 | - |
 | S3_SECRET_KEY | Secret key S3 | - |
+| S3_ENDPOINT | Endpoint S3 (Backblaze B2, MinIO) | - |
 | CLOUDINARY_URL | URL Cloudinary | - |
+
+### OCR
+| Variable | Descripcion | Default |
+|---|---|---|
+| OCR_PROVIDER | gemini / tesseract / ocrspace | ocrspace |
+| GEMINI_API_KEY | API key de Google Gemini | - |
+| OCRSPACE_API_KEY | API key de OCR.space | - |
 
 ---
 
@@ -85,7 +111,7 @@ Diferencia: produccion usa mas workers, sin reload, logs minimos, CORS restringi
 ```bash
 uv sync
 python run.py
-# http://localhost:7000
+# http://localhost:8000
 ```
 
 Para produccion con PostgreSQL:
@@ -97,11 +123,31 @@ docker compose up -d
 
 ## Endpoints
 
-| Metodo | Ruta | Descripcion |
-|---|---|---|
-| GET | / | Frontend PWA |
-| GET | /docs | Documentacion Swagger |
-| POST | /api/upload | Sube imagen + cliente_id |
+| Metodo | Ruta | Descripcion | Auth |
+|---|---|---|---|
+| GET | / | Frontend PWA | No |
+| GET | /health | Health check (verifica BD) | No |
+| GET | /docs | Documentacion Swagger | No |
+| POST | /api/upload | Sube imagen + cliente_id | Si (production) |
+
+**POST /api/upload** acepta:
+- `imagen`: Archivo (JPEG, PNG, WebP)
+- `cliente_id`: String (1-50 caracteres, alphanumeric + guiones)
+- `X-Api-Key`: Header (solo production)
+
+---
+
+## Testing
+
+```bash
+uv run pytest tests/ -v
+```
+
+4 archivos de test, 32 tests:
+- `test_upload_validator.py` — Validacion de uploads (15 tests)
+- `test_auth.py` — Autenticacion API key (4 tests)
+- `test_rate_limiter.py` — Rate limiting (4 tests)
+- `test_parsers.py` — Parsers OCR compartidos (9 tests)
 
 ---
 
@@ -110,7 +156,7 @@ docker compose up -d
 ### Local (hoy)
 ```bash
 python run.py
-ngrok http 7000
+ngrok http 8000
 # El celular se connecta via Ngrok
 ```
 
@@ -127,3 +173,13 @@ docker compose up -d
 ### GitHub -> Render/Koyeb
 Conectar repo, Render detecta Procfile automaticamente.
 Variables de entorno se configuran en el dashboard de Render/Koyeb.
+
+---
+
+## Changelog v2.1.0 (Auditoria)
+
+- Seguridad: auth, rate limiting, CSP headers, Docker USER no-root
+- Rendimiento: streaming upload, singleton clients, cache preprocesamiento
+- Calidad: circuit breaker, parsers compartidos, ComprobanteResponse
+- Testing: +17 tests (32 total)
+- Deploy: healthcheck BD, password externo, .dockerignore

@@ -22,6 +22,11 @@ con enlaces oficiales, type de API, autenticación y límites.
 **Ventajas:** Extrae campos estructurados directamente (entiende contexto).
 **Desventajas:** Requiere internet, cuota diaria limitada en tier gratis.
 
+**Optimizaciones implementadas:**
+- Singleton: reutiliza `genai.Client` across requests
+- Compresión automática si imagen > 1MB (JPEG 85% quality)
+- MIME type detectado desde extensión del archivo
+
 ---
 
 ## 2. Tesseract OCR (fallback local)
@@ -50,6 +55,11 @@ sudo -S -p '' apt install tesseract-ocr tesseract-ocr-spa
 **Ventajas:** Sin dependencia de internet, sin límites, sin API keys.
 **Desventajas:** Menor precisión que APIs cloud, no entiende contexto.
 
+**Optimizaciones implementadas:**
+- Cache de preprocesamiento (hash de imagen + config)
+- Umbral Otsu optimizado con `histogram()` (100x menos RAM)
+- Regex pre-compilados en `ocr/parsers.py`
+
 ---
 
 ## 3. OCR.space API
@@ -69,6 +79,10 @@ sudo -S -p '' apt install tesseract-ocr tesseract-ocr-spa
 **Ventajas:** 25,000 requests/mes gratis, simple de integrar.
 **Desventajas:** OCR tradicional (no entiende contexto), límite de 1 MB.
 
+**Optimizaciones implementadas:**
+- Compresión automática si imagen > 1MB
+- Regex pre-compilados en `ocr/parsers.py`
+
 ---
 
 ## Comparativa rápida
@@ -84,9 +98,41 @@ sudo -S -p '' apt install tesseract-ocr tesseract-ocr-spa
 
 ---
 
+## Circuit Breaker
+
+El `FallbackProvider` incluye un circuit breaker que protege contra APIs degradadas:
+
+- **Threshold**: 5 fallos consecutivos
+- **Timeout**: 60 segundos
+- **Comportamiento**: Si el proveedor primario falla 5 veces seguidas, se bloquea temporalmente y se usa directamente el fallback (Tesseract) durante 60 segundos.
+- **Reset**: Después de 60 segundos, se reintentar el proveedor primario automáticamente.
+
+---
+
+## Parsers compartidos
+
+`ocr/parsers.py` contiene regex pre-compilados y funciones de parsing compartidas por todos los providers:
+
+```python
+from ocr.parsers import parsear_campos
+
+resultado = parsear_campos(texto_ocr)
+# {"cajero": "...", "fecha": "...", "hora": "...", "no_venta": "...", "monto": "...", "destinatario": "..."}
+```
+
+**Regex pre-compilados:**
+- `RE_CAJERO` — detecta CAJERO, ATENDIO, VENDEDOR, EMPLEADO
+- `RE_FECHA` — detecta fechas DD/MM/AAAA
+- `RE_HORA` — detecta horas HH:MM
+- `RE_VENTA` — detecta VENTA, TICKET, FOLIO
+- `RE_MONTO` — detecta MONTO, TOTAL, IMPORTE
+- `RE_DESTINATARIO` — detecta DESTINATARIO, PARA, BENEFICIARIO
+
+---
+
 ## Cómo cambiar de proveedor
 
-Editar `D:\SAMI\.env`:
+Editar `.env`:
 
 ```env
 # Para Gemini (con fallback Tesseract automático)
@@ -106,7 +152,10 @@ Reiniciar el servidor. Sin tocar código.
 ## Agregar un nuevo proveedor
 
 1. Crear `ocr/nuevo_provider.py` heredando de `OCRProvider` (`ocr/base.py`)
-2. Agregar las variables necesarias en `config/settings.py`
-3. Registrar en `ocr/__init__.py` en la función `get_ocr_engine()`
+2. Implementar `nombre` property + `extraer_campos(ruta) → OCRResult`
+3. Registrar via `registrar_ocr("nombre", NuevoProvider)` en `ocr/__init__.py`
 4. Agregar las claves/credenciales en `.env`
-5. Editar `PROVEEDORES_OCR.md` con la documentación
+5. La factory valida automáticamente las keys al arrancar y emite warnings si faltan
+6. Editar `PROVEEDORES_OCR.md` con la documentación
+
+**Nota**: La factory usa registro dinámico (`_REGISTRO_OCR`), no un switch hardcodeado.

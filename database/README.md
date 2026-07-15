@@ -12,25 +12,47 @@ segun `DATABASE_URL` en `.env`.
 database/
 ├── __init__.py              Re-exporta: engine, SessionLocal, Base, get_db, Comprobante
 ├── engine.py                Fabrica: elige backend segun DATABASE_URL + define Base/Session
-├── models.py                Modelos ORM (hoy: Comprobante)
+├── models.py                Modelos ORM (Comprobante)
 ├── backends/
 │   ├── __init__.py
-│   ├── sqlite.py            Engine SQLite + PRAGMAs (WAL mode, busy timeout)
-│   └── postgres.py        Engine PostgreSQL + pool config (pool_size, pool_pre_ping)
+│   ├── sqlite.py            Engine SQLite + PRAGMAs (WAL mode, busy timeout, pool_pre_ping)
+│   └── postgres.py          Engine PostgreSQL + pool config (pool_size, pool_pre_ping)
 ```
 
-### Flujo de arranque
+### Modelo Comprobante
+
+| Columna | Tipo | Descripcion |
+|---------|------|-------------|
+| id | Integer | Primary key, auto-increment |
+| cajero | String | Nombre del cajero (OCR) |
+| fecha_comprobante | String | Fecha DD/MM/AAAA (OCR) |
+| hora_comprobante | String | Hora HH:MM (OCR) |
+| no_venta | String | Numero de venta/ticket (OCR) |
+| monto | String | Monto detectado (OCR) |
+| destinatario | String | Destinatario para transferencias (OCR) |
+| cliente_id | String | Identificador del cliente (indexado) |
+| fecha_envio | DateTime | Timestamp UTC de cuando se recibio |
+| ruta_imagen | String | Ruta local o URL de la imagen |
+
+---
+
+## Flujo de arranque
 
 ```
 run.py
   └─ config/server.py  (lee DATABASE_URL del .env)
        └─ database/engine.py
-            ├─ ¿sqlite?   → backends/sqlite.py   (crea engine + WAL)
-            ├─ ¿postgres? → backends/postgres.py (crea engine + pool)
+            ├─ ¿sqlite?   → backends/sqlite.py   (crea engine + WAL + pool_pre_ping)
+            ├─ ¿postgres? → backends/postgres.py (crea engine + pool + pool_pre_ping)
             └─ define SessionLocal, Base, get_db
        └─ database/models.py  (Comprobante se registra en Base)
        └─ database/__init__.py (re-exporta todo: service.py y main.py no cambian)
+
+@startup event en main.py:
+  └─ Base.metadata.create_all(bind=engine)  ← Crea tablas al arrancar
 ```
+
+**Nota**: `create_all()` se ejecuta en el evento `@app.on_event("startup")`, NO al importar models.py.
 
 ---
 
@@ -82,6 +104,7 @@ class Cliente(Base):
 | WAL mode | Activado (`PRAGMA journal_mode=WAL`) |
 | Busy timeout | 5 segundos (`PRAGMA busy_timeout=5000`) |
 | check_same_thread | False (permite multi-worker en desarrollo) |
+| pool_pre_ping | True (verifica conexion antes de usarla) |
 
 ### PostgreSQL (`backends/postgres.py`)
 
@@ -107,3 +130,21 @@ def upload(file: UploadFile, db: Session = Depends(get_db)):
 ```
 
 Cierra la sesion al finalizar la peticion (haya funcionado o no).
+
+---
+
+## ComprobanteResponse
+
+`service.py` retorna `ComprobanteResponse` en lugar de monkey-patching atributos en el ORM:
+
+```python
+@dataclass
+class ComprobanteResponse:
+    registro: Comprobante
+    monto: str | None
+    destinatario: str | None
+    ocr_exitoso: bool
+    proveedor_ocr: str | None
+```
+
+Esto separa la representacion de la API del modelo de persistencia.
