@@ -5,17 +5,35 @@ Configuración auto-contenida en GeminiConfig.
 Parámetros desde .env.
 """
 
+import io
 import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from PIL import Image
+
 from config.logger import get_logger
 from ocr.base import OCRProvider, OCRResult
 from utils.exceptions import OCRError
 
 logger = get_logger("gemini")
+
+
+def _comprimir_imagen(imagen_path: Path, max_size: int = 1024) -> bytes:
+    """Comprime imagen para reducir payload antes de enviar a API."""
+    img = Image.open(imagen_path)
+    # Reducir dimensiones si es muy grande
+    if img.width > max_size or img.height > max_size:
+        img.thumbnail((max_size, max_size), Image.LANCZOS)
+    # Convertir a RGB si tiene canal alfa
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    # Guardar como JPEG comprimido
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG", quality=85, optimize=True)
+    return buffer.getvalue()
 
 # Singleton para cliente Gemini (reutiliza conexión HTTP)
 _gemini_client = None
@@ -91,7 +109,11 @@ class GeminiProvider(OCRProvider):
         # Singleton: reutilizar cliente HTTP
         client = _obtener_cliente_gemini(self.config.api_key)
         imagen_path = Path(ruta_imagen)
+
+        # Comprimir imagen si es muy grande (>1MB)
         imagen_bytes = imagen_path.read_bytes()
+        if len(imagen_bytes) > 1_000_000:
+            imagen_bytes = _comprimir_imagen(imagen_path)
 
         logger.debug(
             "Enviando imagen a Gemini: %s (%d bytes)",

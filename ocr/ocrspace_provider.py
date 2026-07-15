@@ -76,7 +76,15 @@ class OCRSpaceProvider(OCRProvider):
             )
 
         with open(ruta_imagen, "rb") as f:
-            imagen_b64 = base64.b64encode(f.read()).decode("utf-8")
+            imagen_bytes = f.read()
+
+        # Comprimir imagen si es muy grande (>1MB)
+        if len(imagen_bytes) > 1_000_000:
+            from pathlib import Path
+            from ocr.gemini_provider import _comprimir_imagen
+            imagen_bytes = _comprimir_imagen(Path(ruta_imagen))
+
+        imagen_b64 = base64.b64encode(imagen_bytes).decode("utf-8")
 
         logger.debug(
             "Enviando a OCR.space: %s (%d KB)",
