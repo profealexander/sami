@@ -26,10 +26,6 @@ load_dotenv(PROJECT_ROOT / ".env", override=False)
 class Settings:
     """Configuración general del servidor SAMI."""
 
-    # ── Servidor ──
-    host: str = "0.0.0.0"
-    port: int = 8000
-
     # ── Archivos ──
     upload_dir: str = "uploads"
 
@@ -42,20 +38,16 @@ class Settings:
     allowed_extensions: str = ".jpg,.jpeg,.png,.webp"
 
     # ── Logging ──
-    log_level: str = "INFO"
     log_file: str = ""
 
     @classmethod
     def load(cls) -> "Settings":
         """Carga Settings desde variables de entorno y .env."""
         return cls(
-            host=os.getenv("HOST", "0.0.0.0").strip(),
-            port=int(os.getenv("PORT", "8000")),
             upload_dir=os.getenv("UPLOAD_DIR", "uploads").strip(),
             ocr_provider=os.getenv("OCR_PROVIDER", "ocrspace").strip().lower(),
             max_upload_size_mb=int(os.getenv("MAX_UPLOAD_SIZE_MB", "10")),
             allowed_extensions=os.getenv("ALLOWED_EXTENSIONS", ".jpg,.jpeg,.png,.webp").strip(),
-            log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
             log_file=os.getenv("LOG_FILE", "").strip(),
         )
 

@@ -13,14 +13,14 @@ Uso:
 import uvicorn
 from config.logger import setup_logging, get_logger
 from config.server import server_config
-from config.settings import settings, PROJECT_ROOT
+from config.settings import settings
 
 if __name__ == "__main__":
     # Inicializar logging ANTES de cualquier otro mensaje
     setup_logging(
-        level=settings.log_level,
+        level=server_config.log_level,
         log_file=settings.log_file if settings.log_file else None,
-        project_root=PROJECT_ROOT,
+        project_root=str(__import__('pathlib').Path(__file__).parent),
     )
 
     logger = get_logger("run")
