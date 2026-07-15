@@ -16,9 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
 
-
-# ── Ruta base del proyecto (D:\SAMI\ o /home/sami/) ──
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from config.common import PROJECT_ROOT
 
 # Cargar .env sin sobrescribir vars existentes
 load_dotenv(PROJECT_ROOT / ".env", override=False)

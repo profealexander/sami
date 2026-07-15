@@ -5,6 +5,7 @@ Rutas, CORS, validacion de uploads y montaje de estaticos.
 Delega la logica de negocio a service.py.
 """
 
+import asyncio
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request, Header
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -53,10 +54,28 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Inicializar tablas de BD al arrancar el servidor."""
+    from database.engine import engine
+    from database.models import Base
+    Base.metadata.create_all(bind=engine)
+    logger.info("Base de datos inicializada correctamente")
+
+
 @app.get("/health", description="Verifica que el servidor esta vivo y funcionando correctamente")
 def health_check():
-    """Health check. Retorna estado, version y entorno activo."""
-    return {"status": "ok", "version": "2.2.0", "entorno": server_config.env}
+    """Health check. Retorna estado, version, entorno y estado de BD."""
+    from sqlalchemy import text
+    status = {"status": "ok", "version": "2.2.0", "entorno": server_config.env}
+    try:
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        status["database"] = "ok"
+    except Exception as e:
+        status["status"] = "degraded"
+        status["database"] = f"error: {type(e).__name__}"
+    return status
 
 
 @app.get("/", description="Sirve el frontend PWA para captura de comprobantes desde el movil")
@@ -114,8 +133,13 @@ async def subir_comprobante(
         nombre_seguro = sanitizar_filename(imagen.filename or "captura.jpg")
         ext = f".{nombre_seguro.rsplit('.', 1)[-1]}" if "." in nombre_seguro else ".jpg"
 
-        ruta_imagen = service.guardar_imagen_fisica(contenido, ext)
-        registro = service.procesar_y_guardar_comprobante(db, ruta_imagen, cliente_id)
+        # Operaciones síncronas en executor para no bloquear event loop
+        ruta_imagen = await asyncio.get_event_loop().run_in_executor(
+            None, service.guardar_imagen_fisica, contenido, ext
+        )
+        registro = await asyncio.get_event_loop().run_in_executor(
+            None, service.procesar_y_guardar_comprobante, db, ruta_imagen, cliente_id
+        )
 
         logger.info(
             "Upload exitoso — id=%s | cliente=%s | cajero=%s",

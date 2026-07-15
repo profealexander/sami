@@ -129,8 +129,11 @@ class TesseractProvider(OCRProvider):
         if self.config.denoise:
             img = img.filter(ImageFilter.MedianFilter(3))
         if self.config.threshold == 0:
-            pixeles = list(img.getdata())
-            umbral = sum(pixeles) // len(pixeles)
+            # Usar histogram() en lugar de list(getdata()) — 100x menos RAM
+            hist = img.histogram()
+            total = sum(i * c for i, c in enumerate(hist))
+            count = sum(hist)
+            umbral = total // count if count > 0 else 128
             img = img.point(lambda p: 255 if p > umbral else 0)
         elif self.config.threshold < 255:
             img = img.point(lambda p: 255 if p > self.config.threshold else 0)

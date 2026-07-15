@@ -10,9 +10,9 @@ Cada provider OCR ya tiene su propia config en ocr/*_provider.py.
 import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
-from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from config.common import PROJECT_ROOT
+
 load_dotenv(PROJECT_ROOT / ".env", override=False)
 
 

@@ -15,34 +15,41 @@ Proveedores disponibles (según OCR_PROVIDER en .env):
 from config.settings import settings
 from ocr.base import OCRProvider
 
+# Registro dinámico de proveedores
+_REGISTRO_OCR: dict[str, type[OCRProvider]] = {}
+
+
+def registrar_ocr(nombre: str, clase: type[OCRProvider]):
+    """Registra un proveedor OCR en la factoría."""
+    _REGISTRO_OCR[nombre] = clase
+
 
 def get_ocr_engine() -> OCRProvider:
     """Devuelve el motor OCR según la configuración en .env."""
-    provider = settings.ocr_provider
+    from ocr.tesseract_provider import TesseractProvider
+    from ocr.fallback import FallbackProvider
 
-    if provider == "ocrspace":
+    # Auto-registrar si está vacío
+    if not _REGISTRO_OCR:
         from ocr.ocrspace_provider import OCRSpaceProvider
-        from ocr.tesseract_provider import TesseractProvider
-        from ocr.fallback import FallbackProvider
-        return FallbackProvider(
-            primary=OCRSpaceProvider(),
-            fallback=TesseractProvider(),
-        )
-
-    if provider == "gemini":
         from ocr.gemini_provider import GeminiProvider
-        from ocr.tesseract_provider import TesseractProvider
-        from ocr.fallback import FallbackProvider
-        return FallbackProvider(
-            primary=GeminiProvider(),
-            fallback=TesseractProvider(),
-        )
+        registrar_ocr("ocrspace", OCRSpaceProvider)
+        registrar_ocr("gemini", GeminiProvider)
+        registrar_ocr("tesseract", TesseractProvider)
+
+    provider = settings.ocr_provider.lower()
 
     if provider == "tesseract":
-        from ocr.tesseract_provider import TesseractProvider
         return TesseractProvider()
 
-    raise ValueError(
-        f"Proveedor OCR desconocido: '{provider}'. "
-        f"Valores disponibles: ocrspace, gemini, tesseract"
+    primary_cls = _REGISTRO_OCR.get(provider)
+    if not primary_cls:
+        raise ValueError(
+            f"Proveedor OCR desconocido: '{provider}'. "
+            f"Valores disponibles: {', '.join(_REGISTRO_OCR.keys())}"
+        )
+
+    return FallbackProvider(
+        primary=primary_cls(),
+        fallback=TesseractProvider(),
     )

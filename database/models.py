@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, String, DateTime
 
-from database.engine import Base, engine
+from database.engine import Base
 
 
 class Comprobante(Base):
@@ -33,7 +33,3 @@ class Comprobante(Base):
 
     # Respaldo: ruta o URL de la imagen original
     ruta_imagen = Column(String)
-
-
-# Crear tablas si no existen
-Base.metadata.create_all(bind=engine)
