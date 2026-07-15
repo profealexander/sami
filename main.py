@@ -155,6 +155,9 @@ async def subir_comprobante(
         ruta_imagen = await asyncio.get_event_loop().run_in_executor(
             None, service.guardar_imagen_fisica, contenido, ext
         )
+        # Liberar memoria del buffer de imagen
+        contenido = None
+
         respuesta = await asyncio.get_event_loop().run_in_executor(
             None, service.procesar_y_guardar_comprobante, db, ruta_imagen, cliente_id
         )

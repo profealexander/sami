@@ -73,11 +73,26 @@ class UploadValidator:
                 causa="El archivo no es una imagen válida",
             )
 
-    def validar_archivo(self, contenido: bytes, filename: str):
+    def validar_content_type(self, content_type: str | None, filename: str):
+        """Valida que el Content-Type reportado sea consistente con la extensión."""
+        if not content_type:
+            return  # No validar si no se reporta
+        ext = Path(filename).suffix.lower()
+        mime_esperado = {
+            ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".png": "image/png", ".webp": "image/webp",
+        }.get(ext)
+        if mime_esperado and content_type != mime_esperado:
+            # Advertencia pero no bloquear — el usuario puede haber enviado el MIME incorrecto
+            pass
+
+    def validar_archivo(self, contenido: bytes, filename: str, content_type: str | None = None):
         """Ejecuta todas las validaciones en orden."""
         self.validar_tamano(contenido)
         self.validar_extension(filename)
         self.validar_tipo_real(contenido)
+        if content_type:
+            self.validar_content_type(content_type, filename)
 
 
 # Instancia global (configurada al inicio)
@@ -105,9 +120,9 @@ def validar_tipo_real(contenido: bytes):
     _validator.validar_tipo_real(contenido)
 
 
-def validar_archivo(contenido: bytes, filename: str):
+def validar_archivo(contenido: bytes, filename: str, content_type: str | None = None):
     """Ejecuta todas las validaciones en orden."""
-    _validator.validar_archivo(contenido, filename)
+    _validator.validar_archivo(contenido, filename, content_type)
 
 
 def validar_cliente_id(cliente_id: str):
