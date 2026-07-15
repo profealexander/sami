@@ -6,7 +6,7 @@ El método devuelve un OCRResult con los campos extraídos.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Optional
 
 
@@ -32,10 +32,6 @@ class OCRResult:
     # ── Campos extendidos (transferencias bancarias) ──
     monto: Optional[str] = None
     destinatario: Optional[str] = None
-
-    def to_dict(self) -> dict:
-        """Convierte los campos extraidos a diccionario JSON serializable."""
-        return asdict(self)
 
 
 class OCRProvider(ABC):
