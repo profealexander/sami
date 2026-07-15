@@ -138,25 +138,43 @@ async def subir_comprobante(
     validar_cliente_id(cliente_id)
 
     try:
-        contenido = await imagen.read()
+        # Streaming: escribir chunks a disco en lugar de cargar todo a RAM
+        CHUNK_SIZE = 8192
+        nombre_seguro = sanitizar_filename(imagen.filename or "captura.jpg")
+        ext = f".{nombre_seguro.rsplit('.', 1)[-1]}" if "." in nombre_seguro else ".jpg"
+
+        # Guardar directamente a disco con streaming
+        import tempfile
+        from pathlib import Path
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir="uploads")
+        total_bytes = 0
+        while True:
+            chunk = await imagen.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            tmp.write(chunk)
+            total_bytes += len(chunk)
+        tmp.close()
+
         safe_filename = (imagen.filename or "unknown").replace("\n", "").replace("\r", "")
         logger.info(
             "Upload recibido — filename=%s | size=%d KB | cliente=%s",
             safe_filename,
-            len(contenido) // 1024,
+            total_bytes // 1024,
             cliente_id,
         )
+
+        # Validar desde el archivo en disco
+        with open(tmp.name, "rb") as f:
+            contenido = f.read()
         validar_archivo(contenido, imagen.filename or "captura.jpg")
+        contenido = None  # Liberar memoria
 
-        nombre_seguro = sanitizar_filename(imagen.filename or "captura.jpg")
-        ext = f".{nombre_seguro.rsplit('.', 1)[-1]}" if "." in nombre_seguro else ".jpg"
-
-        # Operaciones síncronas en executor para no bloquear event loop
-        ruta_imagen = await asyncio.get_event_loop().run_in_executor(
-            None, service.guardar_imagen_fisica, contenido, ext
-        )
-        # Liberar memoria del buffer de imagen
-        contenido = None
+        # Mover a nombre final con UUID
+        import uuid
+        ruta_final = Path("uploads") / f"{uuid.uuid4().hex}{ext}"
+        Path(tmp.name).rename(ruta_final)
+        ruta_imagen = str(ruta_final)
 
         respuesta = await asyncio.get_event_loop().run_in_executor(
             None, service.procesar_y_guardar_comprobante, db, ruta_imagen, cliente_id
