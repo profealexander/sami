@@ -11,8 +11,10 @@ Configurable via .env:
     ALLOWED_EXTENSIONS=.jpg,.jpeg,.png,.webp
 """
 
-import imghdr
+import io
 from pathlib import Path
+
+from PIL import Image
 
 from utils.exceptions import UploadValidationError
 
@@ -84,32 +86,28 @@ def validar_extension(filename: str) -> None:
 def validar_tipo_real(contenido: bytes) -> None:
     """Valida el tipo MIME real leyendo los magic bytes.
 
-    Usa imghdr (stdlib) para detectar el formato real,
+    Usa PIL para detectar el formato real,
     independientemente de la extensión del archivo.
     """
-    # imghdr.what() lee los primeros bytes y detecta el formato
-    detected = imghdr.what(None, h=contenido)
-
-    if detected is None:
+    try:
+        detected_format = Image.open(io.BytesIO(contenido)).format
+    except Exception:
         raise UploadValidationError(
             codigo=415,
             causa="El archivo no es una imagen válida (no se detectó formato)",
         )
 
-    # Mapear formato detectado a MIME
     mime_map = {
-        "jpeg": "image/jpeg",
-        "png": "image/png",
-        "gif": "image/gif",
-        "webp": "image/webp",
-        "bmp": "image/bmp",
+        "JPEG": "image/jpeg",
+        "PNG": "image/png",
+        "WEBP": "image/webp",
     }
-    mime = mime_map.get(detected)
+    mime = mime_map.get(detected_format)
     if mime not in _ALLOWED_MIMES:
         raise UploadValidationError(
             codigo=415,
             causa=(
-                f"Tipo de imagen '{detected}' no permitido. "
+                f"Tipo de imagen '{detected_format}' no permitido. "
                 f"Permitidos: {', '.join(_ALLOWED_MIMES)}"
             ),
         )
