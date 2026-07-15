@@ -139,6 +139,26 @@ class TesseractProvider(OCRProvider):
             img = img.point(lambda p: 255 if p > self.config.threshold else 0)
         return img
 
+    def extraer_campos(self, ruta_imagen: str) -> OCRResult:
+        """Procesa la imagen con Tesseract OCR y retorna los campos extraidos."""
+        import hashlib
+
+        img = Image.open(ruta_imagen)
+
+        # Cache simple: hash de la imagen + config
+        cache_key = hashlib.md5(img.tobytes()).hexdigest()
+        cache_key += f":{self.config.scale}:{self.config.threshold}:{self.config.denoise}"
+
+        if not hasattr(self, '_cache') or self._cache.get('key') != cache_key:
+            img_preprocesada = self._preprocesar(img)
+            self._cache = {'key': cache_key, 'img': img_preprocesada}
+        else:
+            img_preprocesada = self._cache['img']
+
+        texto_completo = pytesseract.image_to_string(
+            img_preprocesada, lang=self.config.lang, config=f"--psm {self.config.psm}"
+        )
+
     def _parsear_campos(self, texto: str) -> dict:
         """Extrae campos estructurados del texto OCR.
 
