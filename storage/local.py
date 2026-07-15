@@ -22,6 +22,10 @@ class LocalStorageProvider(StorageProvider):
         """Nombre del backend: local."""
         return "local"
 
+    def es_local(self) -> bool:
+        """Retorna True porque almacena en disco local."""
+        return True
+
     def guardar(self, imagen_bytes: bytes, nombre_archivo: str) -> str:
         """Guarda la imagen en disco local y retorna ruta relativa."""
         ruta_relativa = os.path.join(settings.upload_dir, nombre_archivo)
@@ -30,3 +34,7 @@ class LocalStorageProvider(StorageProvider):
         ruta_absoluta.write_bytes(imagen_bytes)
         logger.info("Imagen guardada: %s (%d KB)", ruta_relativa, len(imagen_bytes) // 1024)
         return ruta_relativa
+
+    def resolver_ruta(self, ruta: str) -> str:
+        """Resuelve ruta relativa a absoluta."""
+        return str(PROJECT_ROOT / ruta)

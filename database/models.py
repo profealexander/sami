@@ -26,6 +26,8 @@ class Comprobante(Base):
     fecha_comprobante = Column(String, nullable=True)
     hora_comprobante = Column(String, nullable=True)
     no_venta = Column(String, nullable=True)
+    monto = Column(String, nullable=True)
+    destinatario = Column(String, nullable=True)
 
     # Metadatos del envio
     cliente_id = Column(String, index=True)

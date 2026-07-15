@@ -60,12 +60,13 @@ def procesar_y_guardar_comprobante(
         ComprobanteResponse con registro y campos extendidos
     """
     engine = get_ocr_engine()
+    backend = get_storage_backend()
     ruta_absoluta = None
     resultado = None
 
     # ── Ejecutar OCR con limpieza garantizada ──
     try:
-        ruta_absoluta = _resolver_ruta_imagen(ruta_imagen)
+        ruta_absoluta = _resolver_ruta_imagen(ruta_imagen, backend)
         resultado = engine.extraer_campos(ruta_absoluta)
         logger.info(
             "OCR exitoso — proveedor=%s | cajero=%s | fecha=%s | monto=%s",
@@ -85,13 +86,15 @@ def procesar_y_guardar_comprobante(
         )
         resultado = None
     finally:
-        _limpiar_temporal(ruta_absoluta, ruta_imagen)
+        _limpiar_temporal(ruta_absoluta, ruta_imagen, backend)
 
     # ── Valores por defecto si OCR falló ──
     cajero = resultado.cajero if resultado and resultado.cajero else "OCR no disponible"
     fecha = resultado.fecha if resultado and resultado.fecha else "OCR no disponible"
     hora = resultado.hora if resultado and resultado.hora else "OCR no disponible"
     no_venta = resultado.no_venta if resultado and resultado.no_venta else None
+    monto = resultado.monto if resultado else None
+    destinatario = resultado.destinatario if resultado else None
 
     # ── Guardar en BD ──
     nuevo_comprobante = Comprobante(
@@ -99,6 +102,8 @@ def procesar_y_guardar_comprobante(
         fecha_comprobante=fecha,
         hora_comprobante=hora,
         no_venta=no_venta,
+        monto=monto,
+        destinatario=destinatario,
         cliente_id=cliente_id,
         fecha_envio=datetime.now(timezone.utc),
         ruta_imagen=ruta_imagen,
@@ -117,9 +122,11 @@ def procesar_y_guardar_comprobante(
         fecha,
     )
 
-    # Retornar respuesta con campos extendidos (sin monkey-patching)
-    monto = resultado.monto if resultado else None
-    destinatario = resultado.destinatario if resultado else None
+    return ComprobanteResponse(
+        registro=nuevo_comprobante,
+        monto=monto,
+        destinatario=destinatario,
+    )
 
     return ComprobanteResponse(
         registro=nuevo_comprobante,
@@ -128,24 +135,11 @@ def procesar_y_guardar_comprobante(
     )
 
 
-def _resolver_ruta_imagen(ruta_imagen: str) -> str:
-    """Convierte ruta relativa en BD a ruta absoluta del archivo fisico."""
-    if server_config.storage_backend == "local":
-        return str(PROJECT_ROOT / ruta_imagen)
-
-    logger.info("Descargando imagen remota: %s", ruta_imagen)
-    resp = requests.get(ruta_imagen, timeout=30)
-    resp.raise_for_status()
-
-    ext = ruta_imagen.split(".")[-1].split("?")[0] if "." in ruta_imagen else "jpg"
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
-    tmp.write(resp.content)
-    tmp.close()
-    return tmp.name
+def _resolver_ruta_imagen(ruta_imagen: str, backend) -> str:
+    """Resuelve ruta de BD a ruta accesible para OCR usando el backend."""
+    return backend.resolver_ruta(ruta_imagen)
 
 
-def _limpiar_temporal(ruta_absoluta: str, ruta_original: str) -> None:
-    """Elimina archivo temporal y la copia original del storage."""
-    if server_config.storage_backend != "local" and os.path.exists(ruta_absoluta):
-        os.remove(ruta_absoluta)
-        logger.debug("Temporal eliminado: %s", ruta_absoluta)
+def _limpiar_temporal(ruta_absoluta: str, ruta_original: str, backend) -> None:
+    """Elimina archivo temporal usando el backend."""
+    backend.limpiar_temporal(ruta_absoluta)

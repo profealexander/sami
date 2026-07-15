@@ -30,3 +30,19 @@ class StorageProvider(ABC):
             str: Ruta local relativa o URL pública
         """
         ...
+
+    def es_local(self) -> bool:
+        """Retorna True si el backend almacena en disco local."""
+        return False
+
+    def resolver_ruta(self, ruta: str) -> str:
+        """Resuelve una ruta de BD a ruta accesible para OCR.
+
+        Para backends locales, retorna la ruta absoluta.
+        Para remotos, descarga a temporal y retorna esa ruta.
+        """
+        return ruta
+
+    def limpiar_temporal(self, ruta: str) -> None:
+        """Limpia archivos temporales creados durante resolver_ruta."""
+        pass

@@ -3,6 +3,9 @@ cloudinary.py — Almacenamiento en Cloudinary.
 Activo solo cuando STORAGE_BACKEND=cloudinary en .env.
 """
 
+import os
+import tempfile
+
 from config.logger import get_logger
 from storage.base import StorageProvider
 from config.server import server_config
@@ -36,3 +39,21 @@ class CloudinaryStorageProvider(StorageProvider):
             return url
         except Exception as e:
             raise StorageError(mensaje=f"Error subiendo a Cloudinary: {e}", backend="cloudinary") from e
+
+    def resolver_ruta(self, ruta: str) -> str:
+        """Descarga imagen de Cloudinary a temporal para OCR."""
+        import requests
+        logger.info("Descargando imagen remota: %s", ruta)
+        resp = requests.get(ruta, timeout=30)
+        resp.raise_for_status()
+        ext = ruta.split(".")[-1].split("?")[0] if "." in ruta else "jpg"
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
+        tmp.write(resp.content)
+        tmp.close()
+        return tmp.name
+
+    def limpiar_temporal(self, ruta: str) -> None:
+        """Elimina archivo temporal descargado."""
+        if ruta and os.path.exists(ruta):
+            os.remove(ruta)
+            logger.debug("Temporal eliminado: %s", ruta)
