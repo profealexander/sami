@@ -14,6 +14,7 @@ def create_sqlite_engine(database_url: str):
     engine = create_engine(
         database_url,
         connect_args={"check_same_thread": False},
+        pool_pre_ping=True,
     )
     # WAL mode + busy timeout para escritura concurrente
     with engine.connect() as conn:

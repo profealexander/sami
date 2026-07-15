@@ -50,6 +50,20 @@ class ServerConfig:
     # ── Rate limiting (placeholder) ──
     rate_limit: int = 100
 
+    def __repr__(self) -> str:
+        """Repr con secrets enmascarados."""
+        def _mascara(valor: str, mostrar: int = 4) -> str:
+            if not valor or len(valor) <= mostrar:
+                return "***"
+            return valor[:mostrar] + "***"
+
+        return (
+            f"ServerConfig(env={self.env}, host={self.host}, port={self.port}, "
+            f"storage={self.storage_backend}, db=_mascara, "
+            f"s3_key={_mascara(self.s3_access_key)}, "
+            f"cloudinary={_mascara(self.cloudinary_url, 10)})"
+        )
+
     @classmethod
     def from_env(cls) -> "ServerConfig":
         """Crea ServerConfig a partir de variables de entorno y .env."""
