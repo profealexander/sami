@@ -38,6 +38,12 @@ env/
 *.log
 tmp/
 
+# ── Logs de la aplicacion ──
+logs/
+
+# ── Datos de sesion de agentes AI ──
+.mimocode/
+
 # ── SQLite WAL mode ──
 *.db-wal
 *.db-shm
