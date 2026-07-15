@@ -19,6 +19,7 @@ from utils.exceptions import UploadValidationError, OCRError, StorageError
 from utils.upload_validator import (
     configure as configure_validator,
     validar_archivo,
+    validar_cliente_id,
     sanitizar_filename,
 )
 
@@ -78,6 +79,7 @@ async def subir_comprobante(
             status_code=422,
             detail="cliente_id es requerido y no puede estar vacio",
         )
+    validar_cliente_id(cliente_id)
 
     try:
         contenido = await imagen.read()

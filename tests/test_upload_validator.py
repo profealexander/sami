@@ -11,6 +11,7 @@ from utils.upload_validator import (
     validar_tamano,
     validar_extension,
     validar_tipo_real,
+    validar_cliente_id,
     sanitizar_filename,
     configure,
 )
@@ -82,3 +83,31 @@ class TestSanitizarFilename:
         resultado = sanitizar_filename("archivo<>.txt")
         assert "<" not in resultado
         assert ">" not in resultado
+
+
+class TestValidarClienteId:
+    def test_id_valido_tienda_001(self):
+        validar_cliente_id("tienda_001")
+
+    def test_id_valido_my_store(self):
+        validar_cliente_id("my-store")
+
+    def test_id_vacio_raise_error(self):
+        with pytest.raises(UploadValidationError) as exc_info:
+            validar_cliente_id("")
+        assert exc_info.value.codigo == 422
+
+    def test_id_con_espacios_raise_error(self):
+        with pytest.raises(UploadValidationError) as exc_info:
+            validar_cliente_id("tienda 001")
+        assert exc_info.value.codigo == 422
+
+    def test_id_con_caracteres_especiales_raise_error(self):
+        with pytest.raises(UploadValidationError) as exc_info:
+            validar_cliente_id("tienda@001!")
+        assert exc_info.value.codigo == 422
+
+    def test_id_mas_de_50_caracteres_raise_error(self):
+        with pytest.raises(UploadValidationError) as exc_info:
+            validar_cliente_id("a" * 51)
+        assert exc_info.value.codigo == 422

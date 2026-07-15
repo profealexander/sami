@@ -113,6 +113,25 @@ def validar_tipo_real(contenido: bytes) -> None:
         )
 
 
+def validar_cliente_id(cliente_id: str) -> None:
+    """Valida que el cliente_id tenga formato permitido.
+
+    Solo letras, dígitos, guiones y guiones bajos, de 1 a 50 caracteres.
+
+    Raises:
+        UploadValidationError: si el formato es inválido (HTTP 422)
+    """
+    import re
+    if not re.fullmatch(r"^[a-zA-Z0-9_-]{1,50}$", cliente_id):
+        raise UploadValidationError(
+            codigo=422,
+            causa=(
+                "cliente_id solo puede contener letras, dígitos, guiones "
+                "y guiones bajos, entre 1 y 50 caracteres"
+            ),
+        )
+
+
 def sanitizar_filename(filename: str) -> str:
     """Limpia el nombre de archivo para prevenir path traversal.
 
