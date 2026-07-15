@@ -51,6 +51,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Middleware CSP (Content Security Policy)
+@app.middleware("http")
+async def csp_middleware(request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
@@ -67,7 +78,14 @@ async def startup_event():
 def health_check():
     """Health check. Retorna estado, version, entorno y estado de BD."""
     from sqlalchemy import text
-    status = {"status": "ok", "version": "2.2.0", "entorno": server_config.env}
+    from importlib.metadata import version as get_version
+
+    try:
+        app_version = get_version("sami")
+    except Exception:
+        app_version = "unknown"
+
+    status = {"status": "ok", "version": app_version, "entorno": server_config.env}
     try:
         db = next(get_db())
         db.execute(text("SELECT 1"))
@@ -137,10 +155,11 @@ async def subir_comprobante(
         ruta_imagen = await asyncio.get_event_loop().run_in_executor(
             None, service.guardar_imagen_fisica, contenido, ext
         )
-        registro = await asyncio.get_event_loop().run_in_executor(
+        respuesta = await asyncio.get_event_loop().run_in_executor(
             None, service.procesar_y_guardar_comprobante, db, ruta_imagen, cliente_id
         )
 
+        registro = respuesta.registro
         logger.info(
             "Upload exitoso — id=%s | cliente=%s | cajero=%s",
             registro.id, cliente_id, registro.cajero,
@@ -157,13 +176,11 @@ async def subir_comprobante(
             },
         }
 
-        # Incluir campos extendidos si existen
-        monto = getattr(registro, "_monto", None)
-        destinatario = getattr(registro, "_destinatario", None)
-        if monto is not None:
-            response_data["datos_extraidos"]["monto"] = monto
-        if destinatario is not None:
-            response_data["datos_extraidos"]["destinatario"] = destinatario
+        # Incluir campos extendidos del OCR
+        if respuesta.monto is not None:
+            response_data["datos_extraidos"]["monto"] = respuesta.monto
+        if respuesta.destinatario is not None:
+            response_data["datos_extraidos"]["destinatario"] = respuesta.destinatario
 
         return response_data
 
@@ -192,7 +209,7 @@ async def subir_comprobante(
         logger.exception("Error inesperado en /api/upload")
         raise HTTPException(
             status_code=500,
-            detail=f"Error interno del servidor: {str(e)[:200]}",
+            detail="Error interno del servidor",
         )
 
 

@@ -25,7 +25,12 @@ if __name__ == "__main__":
 
     logger = get_logger("run")
     logger.info("Iniciando servidor — entorno: %s", server_config.env)
-    logger.info("BD: %s", server_config.database_url)
+
+    # Enmascarar credenciales en el log de BD
+    db_url = server_config.database_url
+    if "@" in db_url:
+        db_url = db_url.split("@")[-1]  # Eliminar usuario:password@
+    logger.info("BD: %s", db_url)
     logger.info("Storage: %s", server_config.storage_backend)
 
     uvicorn.run(

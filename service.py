@@ -8,6 +8,7 @@ NO contiene logica directa de OCR ni de almacenamiento.
 import os
 import tempfile
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import requests
@@ -25,6 +26,14 @@ from utils.exceptions import OCRError
 logger = get_logger("service")
 
 
+@dataclass
+class ComprobanteResponse:
+    """Representación de la respuesta API, separada del modelo ORM."""
+    registro: Comprobante
+    monto: str | None
+    destinatario: str | None
+
+
 def guardar_imagen_fisica(imagen_bytes: bytes, extension: str) -> str:
     """Guarda imagen en disco segun backend configurado (local/s3/cloudinary) y retorna ruta."""
     nombre_archivo = f"{uuid.uuid4().hex}{extension}"
@@ -38,7 +47,7 @@ def procesar_y_guardar_comprobante(
     db: Session,
     ruta_imagen: str,
     cliente_id: str,
-) -> Comprobante:
+) -> ComprobanteResponse:
     """
     Procesa una imagen: OCR + guardado en BD.
 
@@ -48,7 +57,7 @@ def procesar_y_guardar_comprobante(
         cliente_id: Identificador del cliente
 
     Returns:
-        Comprobante registrado en BD
+        ComprobanteResponse con registro y campos extendidos
     """
     engine = get_ocr_engine()
     ruta_absoluta = None
@@ -108,15 +117,15 @@ def procesar_y_guardar_comprobante(
         fecha,
     )
 
-    # Adjuntar campos extendidos al objeto para que la API los devuelva
-    if resultado:
-        nuevo_comprobante._monto = resultado.monto
-        nuevo_comprobante._destinatario = resultado.destinatario
-    else:
-        nuevo_comprobante._monto = None
-        nuevo_comprobante._destinatario = None
+    # Retornar respuesta con campos extendidos (sin monkey-patching)
+    monto = resultado.monto if resultado else None
+    destinatario = resultado.destinatario if resultado else None
 
-    return nuevo_comprobante
+    return ComprobanteResponse(
+        registro=nuevo_comprobante,
+        monto=monto,
+        destinatario=destinatario,
+    )
 
 
 def _resolver_ruta_imagen(ruta_imagen: str) -> str:

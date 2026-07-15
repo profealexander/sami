@@ -12,11 +12,15 @@ Configurable via .env:
 """
 
 import io
+import re
 from pathlib import Path
 
 from PIL import Image
 
 from utils.exceptions import UploadValidationError
+
+# Regex pre-compilado para validación de cliente_id
+RE_CLIENTE_ID = re.compile(r"^[a-zA-Z0-9_-]{1,50}$")
 
 # ── Valores por defecto (se sobreescriben desde settings) ──
 _MAX_SIZE_MB = 10
@@ -121,8 +125,7 @@ def validar_cliente_id(cliente_id: str) -> None:
     Raises:
         UploadValidationError: si el formato es inválido (HTTP 422)
     """
-    import re
-    if not re.fullmatch(r"^[a-zA-Z0-9_-]{1,50}$", cliente_id):
+    if not RE_CLIENTE_ID.fullmatch(cliente_id):
         raise UploadValidationError(
             codigo=422,
             causa=(
