@@ -55,7 +55,7 @@ class TestValidarExtension:
         configure(max_size_mb=10, allowed_extensions=".jpg,.png")
         with pytest.raises(UploadValidationError) as exc_info:
             validar_extension("archivo.exe")
-        assert exc_info.value.codigo == 415
+        assert exc_info.value.codigo == 422
 
 
 class TestValidarTipoReal:
@@ -69,7 +69,7 @@ class TestValidarTipoReal:
         contenido = crear_bytes_invalidos()
         with pytest.raises(UploadValidationError) as exc_info:
             validar_tipo_real(contenido)
-        assert exc_info.value.codigo == 415
+        assert exc_info.value.codigo == 422
 
 
 class TestSanitizarFilename:

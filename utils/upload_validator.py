@@ -22,105 +22,99 @@ from utils.exceptions import UploadValidationError
 # Regex pre-compilado para validación de cliente_id
 RE_CLIENTE_ID = re.compile(r"^[a-zA-Z0-9_-]{1,50}$")
 
-# ── Valores por defecto (se sobreescriben desde settings) ──
-_MAX_SIZE_MB = 10
-_MAX_SIZE_BYTES = _MAX_SIZE_MB * 1024 * 1024
-_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-_ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp"}
+
+class UploadValidator:
+    """Validador de archivos con estado encapsulado."""
+
+    def __init__(self, max_size_mb: int = 10, allowed_extensions: str = ".jpg,.jpeg,.png,.webp"):
+        self.max_size_mb = max_size_mb
+        self.max_size_bytes = max_size_mb * 1024 * 1024
+        self.allowed_extensions = {
+            ext.strip().lower()
+            for ext in allowed_extensions.split(",")
+            if ext.strip()
+        }
+        self.allowed_mimes = {"image/jpeg", "image/png", "image/webp"}
+
+    def validar_tamano(self, contenido: bytes):
+        """Valida que el archivo no exceda el tamaño máximo."""
+        if len(contenido) > self.max_size_bytes:
+            raise UploadValidationError(
+                codigo=413,
+                causa=f"Archivo demasiado grande ({len(contenido) // 1024}KB). Máximo: {self.max_size_mb}MB",
+            )
+
+    def validar_extension(self, filename: str):
+        """Valida que la extensión esté permitida."""
+        ext = Path(filename).suffix.lower()
+        if ext not in self.allowed_extensions:
+            raise UploadValidationError(
+                codigo=422,
+                causa=f"Extensión '{ext}' no permitida. Usar: {', '.join(sorted(self.allowed_extensions))}",
+            )
+
+    def validar_tipo_real(self, contenido: bytes):
+        """Valida que el contenido real sea una imagen (magic bytes)."""
+        try:
+            img = Image.open(io.BytesIO(contenido))
+            formato = img.format
+            if formato:
+                mime_real = f"image/{formato.lower()}"
+                if mime_real not in self.allowed_mimes:
+                    raise UploadValidationError(
+                        codigo=422,
+                        causa=f"Formato '{formato}' no permitido. Usar: JPEG, PNG o WebP",
+                    )
+        except UploadValidationError:
+            raise
+        except Exception:
+            raise UploadValidationError(
+                codigo=422,
+                causa="El archivo no es una imagen válida",
+            )
+
+    def validar_archivo(self, contenido: bytes, filename: str):
+        """Ejecuta todas las validaciones en orden."""
+        self.validar_tamano(contenido)
+        self.validar_extension(filename)
+        self.validar_tipo_real(contenido)
+
+
+# Instancia global (configurada al inicio)
+_validator = UploadValidator()
 
 
 def configure(max_size_mb: int, allowed_extensions: str):
     """Configura los límites desde settings.py."""
-    global _MAX_SIZE_MB, _MAX_SIZE_BYTES, _ALLOWED_EXTENSIONS
-    _MAX_SIZE_MB = max_size_mb
-    _MAX_SIZE_BYTES = max_size_mb * 1024 * 1024
-    _ALLOWED_EXTENSIONS = {
-        ext.strip().lower()
-        for ext in allowed_extensions.split(",")
-        if ext.strip()
-    }
+    global _validator
+    _validator = UploadValidator(max_size_mb=max_size_mb, allowed_extensions=allowed_extensions)
 
 
-def validar_archivo(contenido: bytes, filename: str) -> None:
-    """Valida tamaño, extensión y tipo MIME real del archivo.
-
-    Args:
-        contenido: Bytes del archivo subido
-        filename: Nombre original del archivo
-
-    Raises:
-        UploadValidationError: si alguna validación falla
-    """
-    validar_tamano(contenido)
-    validar_extension(filename)
-    validar_tipo_real(contenido)
-
-
-def validar_tamano(contenido: bytes) -> None:
+def validar_tamano(contenido: bytes):
     """Valida que el archivo no exceda el tamaño máximo."""
-    if len(contenido) > _MAX_SIZE_BYTES:
-        raise UploadValidationError(
-            codigo=413,
-            causa=(
-                f"El archivo pesa {len(contenido) / 1024 / 1024:.1f} MB, "
-                f"máximo permitido: {_MAX_SIZE_MB} MB"
-            ),
-        )
+    _validator.validar_tamano(contenido)
 
 
-def validar_extension(filename: str) -> None:
-    """Valida que la extensión del archivo esté permitida."""
-    if not filename or "." not in filename:
-        raise UploadValidationError(
-            codigo=422,
-            causa="El archivo no tiene extensión",
-        )
-
-    ext = f".{filename.rsplit('.', 1)[-1].lower()}"
-    if ext not in _ALLOWED_EXTENSIONS:
-        raise UploadValidationError(
-            codigo=415,
-            causa=(
-                f"Extensión '{ext}' no permitida. "
-                f"Permitidas: {', '.join(sorted(_ALLOWED_EXTENSIONS))}"
-            ),
-        )
+def validar_extension(filename: str):
+    """Valida que la extensión esté permitida."""
+    _validator.validar_extension(filename)
 
 
-def validar_tipo_real(contenido: bytes) -> None:
-    """Valida el tipo MIME real leyendo los magic bytes.
-
-    Usa PIL para detectar el formato real,
-    independientemente de la extensión del archivo.
-    """
-    try:
-        detected_format = Image.open(io.BytesIO(contenido)).format
-    except Exception:
-        raise UploadValidationError(
-            codigo=415,
-            causa="El archivo no es una imagen válida (no se detectó formato)",
-        )
-
-    mime_map = {
-        "JPEG": "image/jpeg",
-        "PNG": "image/png",
-        "WEBP": "image/webp",
-    }
-    mime = mime_map.get(detected_format)
-    if mime not in _ALLOWED_MIMES:
-        raise UploadValidationError(
-            codigo=415,
-            causa=(
-                f"Tipo de imagen '{detected_format}' no permitido. "
-                f"Permitidos: {', '.join(_ALLOWED_MIMES)}"
-            ),
-        )
+def validar_tipo_real(contenido: bytes):
+    """Valida que el contenido real sea una imagen (magic bytes)."""
+    _validator.validar_tipo_real(contenido)
 
 
-def validar_cliente_id(cliente_id: str) -> None:
-    """Valida que el cliente_id tenga formato permitido.
+def validar_archivo(contenido: bytes, filename: str):
+    """Ejecuta todas las validaciones en orden."""
+    _validator.validar_archivo(contenido, filename)
 
-    Solo letras, dígitos, guiones y guiones bajos, de 1 a 50 caracteres.
+
+def validar_cliente_id(cliente_id: str):
+    """Valida que el cliente_id tenga formato válido.
+
+    Solo permite: letras, dígitos, guiones y guiones bajos.
+    Longitud: 1-50 caracteres.
 
     Raises:
         UploadValidationError: si el formato es inválido (HTTP 422)
