@@ -65,3 +65,51 @@ def test_parsear_texto_vacio():
     resultado = parsear_campos("")
     assert resultado["cajero"] is None
     assert resultado["fecha"] is None
+
+
+def test_parsear_cajero_con_atendio():
+    texto = "ATENDIO: Maria Lopez"
+    resultado = parsear_campos(texto)
+    assert resultado["cajero"] == "Maria Lopez"
+
+
+def test_parsear_cajero_remitente():
+    texto = "De Juan Perez"
+    resultado = parsear_campos(texto)
+    assert resultado["cajero"] == "Juan Perez"
+
+
+def test_parsear_destinatario_con_a():
+    texto = "A Maria Lopez"
+    resultado = parsear_campos(texto)
+    assert resultado["destinatario"] == "Maria Lopez"
+
+
+def test_parsear_monto_sin_etiqueta():
+    texto = "$ 27.83"
+    resultado = parsear_campos(texto)
+    assert resultado["monto"] == "27.83"
+
+
+def test_parsear_fecha_textual():
+    texto = "El 06 de julio de 2026"
+    resultado = parsear_campos(texto)
+    assert resultado["fecha"] == "06/07/2026"
+
+
+def test_parsear_hora_con_segundos():
+    texto = "Hora: 14:30:45"
+    resultado = parsear_campos(texto)
+    assert resultado["hora"] == "14:30"
+
+
+def test_parsear_no_venta_con_n():
+    texto = "N° de venta: 0012481545"
+    resultado = parsear_campos(texto)
+    assert resultado["no_venta"] == "0012481545"
+
+
+def test_parsear_no_venta_con_folio():
+    texto = "FOLIO: 98765"
+    resultado = parsear_campos(texto)
+    assert resultado["no_venta"] == "98765"

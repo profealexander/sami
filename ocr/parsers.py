@@ -1,83 +1,116 @@
 """
-parsers.py — Parsers compartidos para providers OCR.
+parsers.py — Parser unico de texto OCR.
 
-Contiene regex pre-compilados y funciones de parsing
-usadas por tesseract_provider y ocrspace_provider.
+Consume los patrones de config/patrones_ocr.py.
+Todos los providers llaman a parsear_campos() en vez de tener su propio parsing.
 """
 
 import re
 
-# ── Regex pre-compilados ──
-RE_CAJERO = re.compile(r'(?:CAJERO|ATENDIO|VENDEDOR|EMPLEADO)\s*[\:\-]?\s*(.+)', re.IGNORECASE)
-RE_FECHA = re.compile(r'(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{2,4})')
-RE_HORA = re.compile(r'(\d{1,2}):(\d{2})')
-RE_VENTA = re.compile(r'(?:VENTA|TICKET|FOLIO|NO\.?\s*VENTA)\s*[\:\-]?\s*(\d+)', re.IGNORECASE)
-RE_MONTO = re.compile(r'(?:MONTO|TOTAL|IMPORTE|PAGO)\s*[\:\-]?\s*\$?\s*([\d,]+\.?\d*)', re.IGNORECASE)
-RE_DESTINATARIO = re.compile(r'(?:DESTINATARIO|PARA|BENEFICIARIO)\s*[\:\-]?\s*(.+)', re.IGNORECASE)
+from config.patrones_ocr import PATRONES, MESES_ES, MESES_FALLBACK
 
-# ── Meses en español ──
-MESES_ES = {
-    "ENERO": "01", "FEBRERO": "02", "MARZO": "03", "ABRIL": "04",
-    "MAYO": "05", "JUNIO": "06", "JULIO": "07", "AGOSTO": "08",
-    "SEPTIEMBRE": "09", "OCTUBRE": "10", "NOVIEMBRE": "11", "DICIEMBRE": "12",
-}
+RE_CAJERO = re.compile(PATRONES["cajero"][0], re.IGNORECASE)
+RE_FECHA = re.compile(PATRONES["fecha_numerica"][0])
+RE_HORA = re.compile(PATRONES["hora"][0], re.IGNORECASE)
+RE_VENTA = re.compile(PATRONES["no_venta"][0], re.IGNORECASE)
+RE_MONTO = re.compile(PATRONES["monto"][1], re.IGNORECASE)
+RE_DESTINATARIO = re.compile(PATRONES["destinatario"][1], re.IGNORECASE)
 
-MESES_FALLBACK = {
-    "JAN": "01", "FEB": "02", "MAR": "03", "APR": "04",
-    "MAY": "05", "JUN": "06", "JUL": "07", "AUG": "08",
-    "SEP": "09", "OCT": "10", "NOV": "11", "DEC": "12",
-}
+_regex_cache = {}
 
 
-def parsear_campos(texto: str) -> dict:
+def _compilar(nombre):
+    if nombre not in _regex_cache:
+        _regex_cache[nombre] = [
+            re.compile(p, re.IGNORECASE) for p in PATRONES[nombre]
+        ]
+    return _regex_cache[nombre]
+
+
+def _match_simple(linea, regex_list):
+    for r in regex_list:
+        m = r.search(linea)
+        if m:
+            return m
+    return None
+
+
+def parsear_campos(texto):
     """Parsea texto OCR y extrae campos estructurados.
 
     Args:
-        texto: Texto crudo extraído por OCR
+        texto: Texto crudo extraido por OCR
 
     Returns:
         Dict con cajero, fecha, hora, no_venta, monto, destinatario
     """
-    lineas = texto.split('\n')
     resultado = {
-        "cajero": None,
-        "fecha": None,
-        "hora": None,
-        "no_venta": None,
-        "monto": None,
-        "destinatario": None,
+        "cajero": None, "fecha": None, "hora": None,
+        "no_venta": None, "monto": None, "destinatario": None,
     }
 
-    for linea in lineas:
+    for linea in texto.split("\n"):
+        linea = linea.strip()
+        if not linea:
+            continue
+
+        # ── Cajero ──
         if not resultado["cajero"]:
-            match = RE_CAJERO.search(linea)
-            if match:
-                resultado["cajero"] = match.group(1).strip()
+            m = _match_simple(linea, _compilar("cajero"))
+            if m:
+                resultado["cajero"] = m.group(1).strip()
 
-        if not resultado["fecha"]:
-            match = RE_FECHA.search(linea)
-            if match:
-                dia, mes, anio = match.group(1), match.group(2), match.group(3)
-                resultado["fecha"] = f"{dia.zfill(2)}/{mes.zfill(2)}/{anio}"
-
-        if not resultado["hora"]:
-            match = RE_HORA.search(linea)
-            if match:
-                resultado["hora"] = f"{match.group(1).zfill(2)}:{match.group(2)}"
-
-        if not resultado["no_venta"]:
-            match = RE_VENTA.search(linea)
-            if match:
-                resultado["no_venta"] = match.group(1)
-
-        if not resultado["monto"]:
-            match = RE_MONTO.search(linea)
-            if match:
-                resultado["monto"] = match.group(1).replace(",", "")
-
+        # ── Destinatario ──
         if not resultado["destinatario"]:
-            match = RE_DESTINATARIO.search(linea)
-            if match:
-                resultado["destinatario"] = match.group(1).strip()
+            m = _match_simple(linea, _compilar("destinatario"))
+            if m:
+                resultado["destinatario"] = m.group(1).strip()
+
+        # ── Monto ──
+        if not resultado["monto"]:
+            m = _match_simple(linea, _compilar("monto"))
+            if m:
+                resultado["monto"] = m.group(1).replace(",", "")
+
+        # ── Fecha numerica (dd/mm/aaaa) ──
+        if not resultado["fecha"]:
+            for r in _compilar("fecha_numerica"):
+                m = r.search(linea)
+                if m:
+                    d, mes, a = m.group(1), m.group(2), m.group(3)
+                    if 1 <= int(d) <= 31 and 1 <= int(mes) <= 12:
+                        resultado["fecha"] = f"{int(d):02d}/{int(mes):02d}/{a}"
+                        break
+
+        # ── Fecha textual (El dd de mes de aaaa) ──
+        if not resultado["fecha"]:
+            for r in _compilar("fecha_textual"):
+                m = r.search(linea)
+                if m:
+                    dia, mes_str, anio = m.group(1), m.group(2).lower(), m.group(3)
+                    mes_num = MESES_ES.get(mes_str)
+                    if not mes_num:
+                        mes_corregido = MESES_FALLBACK.get(mes_str)
+                        if mes_corregido:
+                            mes_num = MESES_ES.get(mes_corregido)
+                    if mes_num:
+                        resultado["fecha"] = f"{int(dia):02d}/{mes_num:02d}/{anio}"
+                    break
+
+        # ── Hora ──
+        if not resultado["hora"]:
+            for r in _compilar("hora"):
+                m = r.search(linea)
+                if m:
+                    h, mi = int(m.group(1)), int(m.group(2))
+                    if 0 <= h <= 23 and 0 <= mi <= 59:
+                        resultado["hora"] = f"{h:02d}:{mi:02d}"
+                    break
+
+        # ── Numero de comprobante ──
+        if not resultado["no_venta"]:
+            m = _match_simple(linea, _compilar("no_venta"))
+            if m:
+                resultado["no_venta"] = m.group(1).strip()
 
     return resultado
