@@ -8,7 +8,8 @@ RUN uv sync --frozen --no-dev
 COPY . .
 RUN chown -R sami:sami /app
 USER sami
-EXPOSE 8000
+ARG PORT=8000
+EXPOSE ${PORT}
 ENV ENV=production
 HEALTHCHECK --interval=30s --timeout=5s CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 CMD ["uv", "run", "python", "run.py"]
