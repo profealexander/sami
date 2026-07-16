@@ -71,16 +71,13 @@ SYSTEM_PROMPT = (
     "Eres un extractor de datos de comprobantes y tickets de venta.\n\n"
     "Analiza la imagen y extrae el texto completo del comprobante.\n"
     "Luego estructura la informacion en JSON con estos campos:\n"
-    '  - "cajero": nombre de la persona que atendio o realizo la venta\n'
-    '  - "fecha": fecha del comprobante en formato DD/MM/AAAA\n'
-    '  - "hora": hora del comprobante en formato HH:MM\n'
-    '  - "no_venta": numero de ticket, factura o venta (opcional, si no aparece pon null)\n'
+    '  - "transfiere": nombre de la persona que transfiere o paga\n'
+    '  - "no_comprobante": numero de ticket, factura o venta (opcional, si no aparece pon null)\n'
+    '  - "monto": monto de la transaccion (ej: "150.00") (opcional, si no aparece pon null)\n'
     '  - "texto_completo": transcripcion completa y textual de todo el texto visible\n\n'
     "Reglas:\n"
     "- Si un campo no esta visible, pon null (no inventes valores)\n"
-    "- Responde UNICAMENTE con el JSON, sin explicaciones ni markdown\n"
-    "- La fecha debe estar en formato DD/MM/AAAA\n"
-    "- La hora debe estar en formato HH:MM (24h)"
+    "- Responde UNICAMENTE con el JSON, sin explicaciones ni markdown"
 )
 
 
@@ -149,19 +146,16 @@ class GeminiProvider(OCRProvider):
             "Respuesta Gemini recibida (%d caracteres)", len(texto_respuesta)
         )
         datos = self._parsear_json(texto_respuesta)
-        if not datos.get("cajero") and not datos.get("fecha"):
+        if not any(datos.get(k) for k in ("transfiere", "no_comprobante", "monto")):
             logger.warning(
                 "Gemini no devolvio campos estructurados — texto=%s",
                 texto_respuesta[:200],
             )
 
         return OCRResult(
-            cajero=datos.get("cajero"),
-            fecha=datos.get("fecha"),
-            hora=datos.get("hora"),
-            no_venta=datos.get("no_venta"),
+            transfiere=datos.get("transfiere") or datos.get("cajero"),
+            no_comprobante=datos.get("no_comprobante") or datos.get("no_venta"),
             monto=datos.get("monto"),
-            destinatario=datos.get("destinatario"),
             texto_completo=datos.get("texto_completo", texto_respuesta),
             proveedor=self.nombre,
         )

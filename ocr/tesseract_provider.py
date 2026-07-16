@@ -143,12 +143,9 @@ class TesseractProvider(OCRProvider):
         campos = parsear_campos(texto_completo)
 
         return OCRResult(
-            cajero=campos.get("cajero"),
-            fecha=campos.get("fecha"),
-            hora=campos.get("hora"),
-            no_venta=campos.get("no_venta"),
+            transfiere=campos.get("transfiere"),
+            no_comprobante=campos.get("no_comprobante"),
             monto=campos.get("monto"),
-            destinatario=campos.get("destinatario"),
             texto_completo=texto_completo.strip(),
             proveedor=self.nombre,
         )

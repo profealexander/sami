@@ -1,8 +1,9 @@
 """
 parsers.py — Parser unico de texto OCR.
 
-Carga los patrones desde config/patrones_ocr.toml.
-Todos los providers llaman a parsear_campos() en vez de tener su propio parsing.
+Carga los patrones desde ocr/patrones_ocr.toml.
+Extrae solo: transfiere, monto, no_comprobante.
+El texto completo del OCR se propaga sin parsear para guardarlo.
 """
 
 import re
@@ -51,11 +52,13 @@ def parsear_campos(texto):
         texto: Texto crudo extraido por OCR
 
     Returns:
-        Dict con cajero, fecha, hora, no_venta, monto, destinatario
+        Dict con transfiere, monto, no_comprobante, texto_completo
     """
     resultado = {
-        "cajero": None, "fecha": None, "hora": None,
-        "no_venta": None, "monto": None, "destinatario": None,
+        "transfiere": None,
+        "monto": None,
+        "no_comprobante": None,
+        "texto_completo": texto.strip(),
     }
 
     for linea in texto.split("\n"):
@@ -63,56 +66,19 @@ def parsear_campos(texto):
         if not linea:
             continue
 
-        if not resultado["cajero"]:
+        if not resultado["transfiere"]:
             m = _match_simple(linea, _compilar("cajero"))
             if m:
-                resultado["cajero"] = m.group(1).strip()
-
-        if not resultado["destinatario"]:
-            m = _match_simple(linea, _compilar("destinatario"))
-            if m:
-                resultado["destinatario"] = m.group(1).strip()
+                resultado["transfiere"] = m.group(1).strip()
 
         if not resultado["monto"]:
             m = _match_simple(linea, _compilar("monto"))
             if m:
                 resultado["monto"] = m.group(1).replace(",", "")
 
-        if not resultado["fecha"]:
-            for r in _compilar("fecha_numerica"):
-                m = r.search(linea)
-                if m:
-                    d, mes, a = m.group(1), m.group(2), m.group(3)
-                    if 1 <= int(d) <= 31 and 1 <= int(mes) <= 12:
-                        resultado["fecha"] = f"{int(d):02d}/{int(mes):02d}/{a}"
-                        break
-
-        if not resultado["fecha"]:
-            for r in _compilar("fecha_textual"):
-                m = r.search(linea)
-                if m:
-                    dia, mes_str, anio = m.group(1), m.group(2).lower(), m.group(3)
-                    mes_num = MESES_ES.get(mes_str)
-                    if not mes_num:
-                        mes_corregido = MESES_FALLBACK.get(mes_str)
-                        if mes_corregido:
-                            mes_num = MESES_ES.get(mes_corregido)
-                    if mes_num:
-                        resultado["fecha"] = f"{int(dia):02d}/{mes_num:02d}/{anio}"
-                    break
-
-        if not resultado["hora"]:
-            for r in _compilar("hora"):
-                m = r.search(linea)
-                if m:
-                    h, mi = int(m.group(1)), int(m.group(2))
-                    if 0 <= h <= 23 and 0 <= mi <= 59:
-                        resultado["hora"] = f"{h:02d}:{mi:02d}"
-                    break
-
-        if not resultado["no_venta"]:
+        if not resultado["no_comprobante"]:
             m = _match_simple(linea, _compilar("no_venta"))
             if m:
-                resultado["no_venta"] = m.group(1).strip()
+                resultado["no_comprobante"] = m.group(1).strip()
 
     return resultado

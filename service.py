@@ -30,8 +30,9 @@ logger = get_logger("service")
 class ComprobanteResponse:
     """Representación de la respuesta API, separada del modelo ORM."""
     registro: Comprobante
+    transfiere: str | None
+    no_comprobante: str | None
     monto: str | None
-    destinatario: str | None
     ocr_exitoso: bool
     proveedor_ocr: str | None
 
@@ -71,10 +72,10 @@ def procesar_y_guardar_comprobante(
         ruta_absoluta = _resolver_ruta_imagen(ruta_imagen, backend)
         resultado = engine.extraer_campos(ruta_absoluta)
         logger.info(
-            "OCR exitoso — proveedor=%s | cajero=%s | fecha=%s | monto=%s",
+            "OCR exitoso — proveedor=%s | transfiere=%s | no_comprobante=%s | monto=%s",
             engine.nombre,
-            resultado.cajero or "N/A",
-            resultado.fecha or "N/A",
+            resultado.transfiere or "N/A",
+            resultado.no_comprobante or "N/A",
             resultado.monto or "N/A",
         )
     except OCRError:
@@ -90,22 +91,18 @@ def procesar_y_guardar_comprobante(
     finally:
         _limpiar_temporal(ruta_absoluta, ruta_imagen, backend)
 
-    # ── Valores por defecto si OCR falló ──
-    cajero = resultado.cajero if resultado and resultado.cajero else "OCR no disponible"
-    fecha = resultado.fecha if resultado and resultado.fecha else "OCR no disponible"
-    hora = resultado.hora if resultado and resultado.hora else "OCR no disponible"
-    no_venta = resultado.no_venta if resultado and resultado.no_venta else None
-    monto = resultado.monto if resultado else None
-    destinatario = resultado.destinatario if resultado else None
+    # ── Valores extraídos ──
+    transfiere = resultado.transfiere if resultado and resultado.transfiere else None
+    no_comprobante = resultado.no_comprobante if resultado and resultado.no_comprobante else None
+    monto = resultado.monto if resultado and resultado.monto else None
+    texto_ocr_crudo = resultado.texto_completo.strip() if resultado and resultado.texto_completo.strip() else None
 
     # ── Guardar en BD ──
     nuevo_comprobante = Comprobante(
-        cajero=cajero,
-        fecha_comprobante=fecha,
-        hora_comprobante=hora,
-        no_venta=no_venta,
+        transfiere=transfiere,
+        no_comprobante=no_comprobante,
         monto=monto,
-        destinatario=destinatario,
+        texto_ocr_crudo=texto_ocr_crudo,
         cliente_id=cliente_id,
         fecha_envio=datetime.now(timezone.utc),
         ruta_imagen=ruta_imagen,
@@ -116,18 +113,19 @@ def procesar_y_guardar_comprobante(
     db.refresh(nuevo_comprobante)
 
     logger.info(
-        "Comprobante #%s registrado | cliente=%s | OCR=%s | cajero=%s | fecha=%s",
+        "Comprobante #%s registrado | cliente=%s | OCR=%s | transfiere=%s | no_comprobante=%s",
         nuevo_comprobante.id,
         cliente_id,
         engine.nombre,
-        cajero,
-        fecha,
+        transfiere or "N/A",
+        no_comprobante or "N/A",
     )
 
     return ComprobanteResponse(
         registro=nuevo_comprobante,
+        transfiere=transfiere,
+        no_comprobante=no_comprobante,
         monto=monto,
-        destinatario=destinatario,
         ocr_exitoso=resultado is not None,
         proveedor_ocr=engine.nombre if resultado else None,
     )

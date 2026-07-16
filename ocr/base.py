@@ -12,26 +12,12 @@ from typing import Optional
 
 @dataclass
 class OCRResult:
-    """Resultado estandarizado del OCR, sin importar el proveedor.
-
-    Campos comunes (siempre presentes):
-      - cajero, fecha, hora, no_venta
-      - texto_completo, proveedor
-
-    Campos extendidos (según el tipo de comprobante):
-      - monto: valor monetario detectado ($ XX.XX)
-      - destinatario: persona/fondo destino (transferencias)
-    """
-    cajero: Optional[str] = None
-    fecha: Optional[str] = None
-    hora: Optional[str] = None
-    no_venta: Optional[str] = None
+    """Resultado estandarizado del OCR, sin importar el proveedor."""
+    transfiere: Optional[str] = None
+    no_comprobante: Optional[str] = None
+    monto: Optional[str] = None
     texto_completo: str = ""
     proveedor: str = ""
-
-    # ── Campos extendidos (transferencias bancarias) ──
-    monto: Optional[str] = None
-    destinatario: Optional[str] = None
 
 
 class OCRProvider(ABC):

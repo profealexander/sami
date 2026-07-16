@@ -60,13 +60,10 @@
             fetch('/api/upload',{method:'POST',body:fd})
             .then(function(r){if(!r.ok)return r.json().then(function(e){throw new Error(e.detail||'Error del servidor')});return r.json()})
             .then(function(d){
-                var x=d.datos_extraidos||{},h='';
-                if(x.cajero)h+='<strong>Cajero:</strong> '+x.cajero+'<br>';
-                if(x.fecha)h+='<strong>Fecha:</strong> '+x.fecha+'<br>';
-                if(x.hora)h+='<strong>Hora:</strong> '+x.hora+'<br>';
-                if(x.monto)h+='<strong>Monto:</strong> '+x.monto+'<br>';
-                if(x.venta_no)h+='<strong>Venta #:</strong> '+x.venta_no+'<br>';
-                if(x.destinatario)h+='<strong>Destinatario:</strong> '+x.destinatario+'<br>';
+                var h='';
+                if(d.transfiere)h+='<strong>Transfiere:</strong> '+d.transfiere+'<br>';
+                if(d.no_comprobante)h+='<strong>No. Comprobante:</strong> '+d.no_comprobante+'<br>';
+                if(d.monto)h+='<strong>Monto:</strong> '+d.monto+'<br>';
                 if(!h)h='Comprobante procesado';
                 res.innerHTML=h;res.style.display='block';
                 sT('ok','Comprobante procesado correctamente');

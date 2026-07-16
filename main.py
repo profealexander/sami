@@ -219,30 +219,18 @@ async def subir_comprobante(
 
         registro = respuesta.registro
         logger.info(
-            "Upload exitoso — id=%s | cliente=%s | cajero=%s",
-            registro.id, cliente_id, registro.cajero,
+            "Upload exitoso — id=%s | cliente=%s | transfiere=%s",
+            registro.id, cliente_id, registro.transfiere or "N/A",
         )
 
-        response_data = {
+        return {
             "status": "success",
-            "mensaje": "Comprobante procesado y guardado",
+            "transfiere": respuesta.transfiere,
+            "no_comprobante": respuesta.no_comprobante,
+            "monto": respuesta.monto,
             "ocr_exitoso": respuesta.ocr_exitoso,
             "proveedor_ocr": respuesta.proveedor_ocr,
-            "datos_extraidos": {
-                "cajero": registro.cajero,
-                "fecha": registro.fecha_comprobante,
-                "hora": registro.hora_comprobante,
-                "venta_no": registro.no_venta,
-            },
         }
-
-        # Incluir campos extendidos del OCR
-        if respuesta.monto is not None:
-            response_data["datos_extraidos"]["monto"] = respuesta.monto
-        if respuesta.destinatario is not None:
-            response_data["datos_extraidos"]["destinatario"] = respuesta.destinatario
-
-        return response_data
 
     except UploadValidationError as e:
         logger.warning("Upload rechazado: %s", e.mensaje)

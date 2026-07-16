@@ -7,31 +7,21 @@ Cada modelo hereda de Base (definida en database.engine).
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime
 
 from database.engine import Base
 
 
 class Comprobante(Base):
-    """Modelo ORM de la tabla comprobantes.
-
-    Almacena los campos extraidos por OCR y metadatos del envio.
-    Cada fila representa un comprobante procesado.
-    """
+    """Modelo ORM de la tabla comprobantes."""
     __tablename__ = "comprobantes"
 
     id = Column(Integer, primary_key=True, index=True)
-    # Datos extraidos por OCR
-    cajero = Column(String, nullable=True)
-    fecha_comprobante = Column(String, nullable=True)
-    hora_comprobante = Column(String, nullable=True)
-    no_venta = Column(String, nullable=True)
+    transfiere = Column(String, nullable=True)
+    no_comprobante = Column(String, nullable=True)
     monto = Column(String, nullable=True)
-    destinatario = Column(String, nullable=True)
+    texto_ocr_crudo = Column(Text, nullable=True)
 
-    # Metadatos del envio
     cliente_id = Column(String, index=True)
     fecha_envio = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-    # Respaldo: ruta o URL de la imagen original
     ruta_imagen = Column(String)

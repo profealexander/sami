@@ -2,31 +2,43 @@
 test_parsers.py — Tests de parsers OCR compartidos.
 """
 
-from ocr.parsers import parsear_campos, RE_CAJERO, RE_FECHA, RE_HORA
+from ocr.parsers import parsear_campos, RE_CAJERO, RE_VENTA, RE_MONTO
 
 
-def test_parsear_cajero():
+def test_parsear_transfiere():
     texto = "CAJERO: Juan Pérez"
     resultado = parsear_campos(texto)
-    assert resultado["cajero"] == "Juan Pérez"
+    assert resultado["transfiere"] == "Juan Pérez"
 
 
-def test_parsear_fecha():
-    texto = "Fecha: 15/07/2026"
+def test_parsear_transfiere_atendio():
+    texto = "ATENDIO: Maria Lopez"
     resultado = parsear_campos(texto)
-    assert resultado["fecha"] == "15/07/2026"
+    assert resultado["transfiere"] == "Maria Lopez"
 
 
-def test_parsear_hora():
-    texto = "Hora: 14:30"
+def test_parsear_transfiere_remitente():
+    texto = "De Juan Perez"
     resultado = parsear_campos(texto)
-    assert resultado["hora"] == "14:30"
+    assert resultado["transfiere"] == "Juan Perez"
 
 
-def test_parsear_venta():
+def test_parsear_no_comprobante():
     texto = "VENTA: 12345"
     resultado = parsear_campos(texto)
-    assert resultado["no_venta"] == "12345"
+    assert resultado["no_comprobante"] == "12345"
+
+
+def test_parsear_no_comprobante_con_n():
+    texto = "N° de venta: 0012481545"
+    resultado = parsear_campos(texto)
+    assert resultado["no_comprobante"] == "0012481545"
+
+
+def test_parsear_no_comprobante_con_folio():
+    texto = "FOLIO: 98765"
+    resultado = parsear_campos(texto)
+    assert resultado["no_comprobante"] == "98765"
 
 
 def test_parsear_monto():
@@ -35,81 +47,35 @@ def test_parsear_monto():
     assert resultado["monto"] == "1234.56"
 
 
-def test_parsear_destinatario():
-    texto = "DESTINATARIO: Maria Lopez"
-    resultado = parsear_campos(texto)
-    assert resultado["destinatario"] == "Maria Lopez"
-
-
-def test_regex_compilados():
-    assert RE_CAJERO is not None
-    assert RE_FECHA is not None
-    assert RE_HORA is not None
-
-
-def test_parsear_multiples_campos():
-    texto = """CAJERO: Pedro Gomez
-Fecha: 20/12/2025
-Hora: 09:15
-VENTA: 99999
-TOTAL: $500.00"""
-    resultado = parsear_campos(texto)
-    assert resultado["cajero"] == "Pedro Gomez"
-    assert resultado["fecha"] == "20/12/2025"
-    assert resultado["hora"] == "09:15"
-    assert resultado["no_venta"] == "99999"
-    assert resultado["monto"] == "500.00"
-
-
-def test_parsear_texto_vacio():
-    resultado = parsear_campos("")
-    assert resultado["cajero"] is None
-    assert resultado["fecha"] is None
-
-
-def test_parsear_cajero_con_atendio():
-    texto = "ATENDIO: Maria Lopez"
-    resultado = parsear_campos(texto)
-    assert resultado["cajero"] == "Maria Lopez"
-
-
-def test_parsear_cajero_remitente():
-    texto = "De Juan Perez"
-    resultado = parsear_campos(texto)
-    assert resultado["cajero"] == "Juan Perez"
-
-
-def test_parsear_destinatario_con_a():
-    texto = "A Maria Lopez"
-    resultado = parsear_campos(texto)
-    assert resultado["destinatario"] == "Maria Lopez"
-
-
 def test_parsear_monto_sin_etiqueta():
     texto = "$ 27.83"
     resultado = parsear_campos(texto)
     assert resultado["monto"] == "27.83"
 
 
-def test_parsear_fecha_textual():
-    texto = "El 06 de julio de 2026"
+def test_parsear_multiples_campos():
+    texto = """CAJERO: Pedro Gomez
+VENTA: 99999
+TOTAL: $500.00"""
     resultado = parsear_campos(texto)
-    assert resultado["fecha"] == "06/07/2026"
+    assert resultado["transfiere"] == "Pedro Gomez"
+    assert resultado["no_comprobante"] == "99999"
+    assert resultado["monto"] == "500.00"
 
 
-def test_parsear_hora_con_segundos():
-    texto = "Hora: 14:30:45"
-    resultado = parsear_campos(texto)
-    assert resultado["hora"] == "14:30"
+def test_parsear_texto_vacio():
+    resultado = parsear_campos("")
+    assert resultado["transfiere"] is None
+    assert resultado["no_comprobante"] is None
+    assert resultado["monto"] is None
 
 
-def test_parsear_no_venta_con_n():
-    texto = "N° de venta: 0012481545"
-    resultado = parsear_campos(texto)
-    assert resultado["no_venta"] == "0012481545"
+def test_regex_compilados():
+    assert RE_CAJERO is not None
+    assert RE_VENTA is not None
+    assert RE_MONTO is not None
 
 
-def test_parsear_no_venta_con_folio():
-    texto = "FOLIO: 98765"
-    resultado = parsear_campos(texto)
-    assert resultado["no_venta"] == "98765"
+def test_texto_completo_incluido():
+    resultado = parsear_campos("  Hola mundo  ")
+    assert resultado["texto_completo"] == "Hola mundo"
