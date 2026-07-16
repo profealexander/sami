@@ -14,12 +14,8 @@ Jerarquía de resolución:
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from dotenv import load_dotenv
 
 from config.common import PROJECT_ROOT
-
-# Cargar .env sin sobrescribir vars existentes
-load_dotenv(PROJECT_ROOT / ".env", override=False)
 
 
 @dataclass

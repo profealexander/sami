@@ -1,4 +1,4 @@
-# AGENTS.md — Guidance for AI agents working in SAMI
+# AGENTS.md — Guidance for AI agents working in SAMIOCR
 
 ## Language rule (critical)
 

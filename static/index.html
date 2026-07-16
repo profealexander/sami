@@ -3,152 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a2e">
+    <link rel="manifest" href="/static/manifest.json">
     <title>SAMI - Captura Comprobantes</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body, html { width: 100%; height: 100%; background: #1a1a2e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-
-        #app {
-            width: 100%; height: 100%; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; padding: 20px;
-        }
-
-        h1 { color: #fff; font-size: 2rem; margin-bottom: 8px; }
-        .subtitle { color: #aaa; font-size: 0.95rem; margin-bottom: 40px; text-align: center; }
-
-        .btn-group { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 280px; }
-
-        .btn {
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            width: 100%; padding: 16px 20px; border: none; border-radius: 12px;
-            font-size: 1.1rem; font-weight: 600; cursor: pointer;
-            transition: transform 0.1s, opacity 0.2s;
-        }
-        .btn:active { transform: scale(0.96); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-camera { background: #0f3460; color: #fff; }
-        .btn-file { background: #1a5276; color: #fff; }
-
-        .btn .icon { font-size: 1.4rem; }
-
-        #status {
-            margin-top: 24px; padding: 12px 20px; border-radius: 8px;
-            font-size: 0.9rem; text-align: center; max-width: 280px;
-            display: none;
-        }
-        #status.ok { display: block; background: rgba(46,204,113,0.15); color: #2ecc71; }
-        #status.error { display: block; background: rgba(255,107,107,0.15); color: #ff6b6b; }
-        #status.loading { display: block; background: rgba(52,152,219,0.15); color: #3498db; }
-
-        #resultado {
-            margin-top: 16px; padding: 14px; border-radius: 8px;
-            background: rgba(255,255,255,0.05); color: #ccc;
-            font-size: 0.85rem; max-width: 280px; width: 100%;
-            display: none; line-height: 1.5;
-        }
-        #resultado strong { color: #fff; }
-
-        #clienteId {
-            margin-top: 30px; color: #555; font-size: 0.75rem; font-family: monospace;
-        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        html,body{width:100%;height:100%;background:#1a1a2e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+        #app{width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px}
+        h1{color:#fff;font-size:2rem;margin-bottom:8px}
+        .subtitle{color:#aaa;font-size:.95rem;margin-bottom:40px;text-align:center}
+        .btn-group{display:flex;flex-direction:column;gap:14px;width:100%;max-width:280px}
+        .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px 20px;border:none;border-radius:12px;font-size:1.1rem;font-weight:600;cursor:pointer;transition:transform .1s,opacity .2s}
+        .btn:active{transform:scale(.96)}
+        .btn:disabled{opacity:.5;cursor:not-allowed}
+        .btn-camera{background:#0f3460;color:#fff}
+        .btn-file{background:#1a5276;color:#fff}
+        .btn .icon{font-size:1.4rem}
+        #status{margin-top:24px;padding:12px 20px;border-radius:8px;font-size:.9rem;text-align:center;max-width:280px;display:none}
+        #status.ok{display:block;background:rgba(46,204,113,.15);color:#2ecc71}
+        #status.error{display:block;background:rgba(255,107,107,.15);color:#ff6b6b}
+        #status.loading{display:block;background:rgba(52,152,219,.15);color:#3498db}
+        #resultado{margin-top:16px;padding:14px;border-radius:8px;background:rgba(255,255,255,.05);color:#ccc;font-size:.85rem;max-width:280px;width:100%;display:none;line-height:1.5}
+        #resultado strong{color:#fff}
+        #clienteId{margin-top:30px;color:#555;font-size:.75rem;font-family:monospace}
     </style>
+    <script>
+        if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js')}
+    </script>
 </head>
 <body>
     <div id="app">
         <h1>SAMI</h1>
         <p class="subtitle">Captura tus comprobantes</p>
-
         <div class="btn-group">
-            <button id="btnCamera" class="btn btn-camera">
-                <span class="icon">📷</span> Sacar Foto
-            </button>
-            <button id="btnFile" class="btn btn-file">
-                <span class="icon">📁</span> Seleccionar de Galería
-            </button>
+            <label for="cameraInput" class="btn btn-camera"><span class="icon">&#x1f4f7;</span> Sacar Foto</label>
+            <label for="fileInput" class="btn btn-file"><span class="icon">&#x1f4c1;</span> Seleccionar de Galería</label>
         </div>
-
         <div id="status"></div>
         <div id="resultado"></div>
         <div id="clienteId"></div>
     </div>
-
-    <!-- Inputs ocultos: uno abre cámara, otro abre galería/archivos -->
     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
     <input type="file" id="fileInput" accept="image/*" style="display:none">
-
     <script>
-        const btnCamera = document.getElementById('btnCamera');
-        const btnFile = document.getElementById('btnFile');
-        const cameraInput = document.getElementById('cameraInput');
-        const fileInput = document.getElementById('fileInput');
-        const status = document.getElementById('status');
-        const resultado = document.getElementById('resultado');
-        const clienteIdEl = document.getElementById('clienteId');
-
-        // ID del cliente (estable por sesión)
-        const cliente_id = 'C_' + Math.floor(Math.random() * 10000);
-        clienteIdEl.textContent = 'ID: ' + cliente_id;
-
-        // Botón cámara → abre la cámara del teléfono
-        btnCamera.addEventListener('click', () => {
-            cameraInput.value = '';
-            cameraInput.click();
-        });
-
-        // Botón galería → abre selector de archivos
-        btnFile.addEventListener('click', () => {
-            fileInput.value = '';
-            fileInput.click();
-        });
-
-        // Cuando se selecciona una imagen (de cámara o galería)
-        function manejarImagen(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            setStatus('loading', 'Subiendo comprobante...');
-            resultado.style.display = 'none';
-
-            const formData = new FormData();
-            formData.append('imagen', file);
-            formData.append('cliente_id', cliente_id);
-
-            fetch('/api/upload', {
-                method: 'POST',
-                body: formData
+        var cI=document.getElementById('cameraInput'),fI=document.getElementById('fileInput'),
+            st=document.getElementById('status'),res=document.getElementById('resultado'),
+            cId=document.getElementById('clienteId'),
+            cid='C_'+Math.floor(Math.random()*10000);
+        cId.textContent='ID: '+cid;
+        function sT(t,m){st.className=t;st.textContent=m}
+        function mI(e){
+            var f=e.target.files[0];if(!f)return;
+            sT('loading','Subiendo comprobante...');
+            res.style.display='none';
+            var fd=new FormData();fd.append('imagen',f);fd.append('cliente_id',cid);
+            fetch('/api/upload',{method:'POST',body:fd})
+            .then(function(r){if(!r.ok)return r.json().then(function(e){throw new Error(e.detail||'Error del servidor')});return r.json()})
+            .then(function(d){
+                var x=d.datos_extraidos||{},h='';
+                if(x.cajero)h+='<strong>Cajero:</strong> '+x.cajero+'<br>';
+                if(x.fecha)h+='<strong>Fecha:</strong> '+x.fecha+'<br>';
+                if(x.hora)h+='<strong>Hora:</strong> '+x.hora+'<br>';
+                if(x.monto)h+='<strong>Monto:</strong> '+x.monto+'<br>';
+                if(x.venta_no)h+='<strong>Venta #:</strong> '+x.venta_no+'<br>';
+                if(x.destinatario)h+='<strong>Destinatario:</strong> '+x.destinatario+'<br>';
+                if(!h)h='Comprobante procesado';
+                res.innerHTML=h;res.style.display='block';
+                sT('ok','Comprobante procesado correctamente');
             })
-            .then(r => {
-                if (!r.ok) return r.json().then(err => { throw new Error(err.detail || 'Error del servidor'); });
-                return r.json();
-            })
-            .then(data => {
-                const d = data.datos_extraidos || {};
-                let html = '';
-                if (d.cajero) html += '<strong>Cajero:</strong> ' + d.cajero + '<br>';
-                if (d.fecha) html += '<strong>Fecha:</strong> ' + d.fecha + '<br>';
-                if (d.hora) html += '<strong>Hora:</strong> ' + d.hora + '<br>';
-                if (d.monto) html += '<strong>Monto:</strong> ' + d.monto + '<br>';
-                if (d.venta_no) html += '<strong>Venta #:</strong> ' + d.venta_no + '<br>';
-                if (d.destinatario) html += '<strong>Destinatario:</strong> ' + d.destinatario + '<br>';
-                if (!html) html = 'Comprobante procesado';
-
-                resultado.innerHTML = html;
-                resultado.style.display = 'block';
-                setStatus('ok', 'Comprobante procesado correctamente');
-            })
-            .catch(err => {
-                setStatus('error', err.message);
-            });
+            .catch(function(e){sT('error',e.message)});
         }
-
-        cameraInput.addEventListener('change', manejarImagen);
-        fileInput.addEventListener('change', manejarImagen);
-
-        function setStatus(tipo, msg) {
-            status.className = tipo;
-            status.textContent = msg;
-        }
+        cI.onchange=mI;fI.onchange=mI;
     </script>
 </body>
 </html>
