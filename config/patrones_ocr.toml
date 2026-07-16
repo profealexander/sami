@@ -1,0 +1,68 @@
+# Patrones de extraccion OCR
+# Edita este archivo para ajustar los regex sin tocar codigo Python.
+# Cada campo tiene una lista de patrones. El primero que matchee se usa.
+# Los grupos de captura entre parentesis () son los valores a extraer.
+
+[patrones]
+cajero = [
+    '(?:CAJERO|ATENDIO|ATENDIO|CAJER@|VENDEDOR|EMPLEADO)\s*[\:\-]?\s*(.+)',
+    '^De\s+(.+)$',
+]
+
+destinatario = [
+    '^A\s+(.+)$',
+    '(?:DESTINATARIO|PARA|BENEFICIARIO)\s*[\:\-]?\s*(.+)',
+]
+
+monto = [
+    '(?:MONTO|TOTAL|IMPORTE|PAGO)\s*[\:\-]?\s*\$?\s*([\d,]+\.?\d*)',
+    '\$\s*([\d,]+\.?\d*)',
+]
+
+fecha_numerica = [
+    '(\d{1,2})[\-\.\/](\d{1,2})[\-\.\/](\d{2,4})',
+]
+
+fecha_textual = [
+    'El\s+(\d{1,2})\s+de\s+([a-z\240-\377]+)\s+de\s+(\d{4})',
+]
+
+hora = [
+    '(\d{1,2}):(\d{2})(?::(\d{2}))?',
+]
+
+no_venta = [
+    '(?:VENTA|TICKET|FACTURA|COMPROBANTE)\s*[\:\-]?\s*(\d[\d\-/]*)',
+    '(?:No\.?|N|NUMERO|FOLIO)\s*[\:\-]?\s*(\d[\d\-]*)',
+    'N[\*\u00B0]\s*de\s+(?:comprobante|venta|ticket)\s*[\:\-]?\s*(\d[\d\-]*)',
+    '(?:No\.?\s*VENTA|NO\.?\s*VENTA)\s*[\:\-]?\s*(\d+)',
+]
+
+[meses]
+enero = 1
+febrero = 2
+marzo = 3
+abril = 4
+mayo = 5
+junio = 6
+julio = 7
+agosto = 8
+septiembre = 9
+octubre = 10
+noviembre = 11
+diciembre = 12
+
+[meses_fallback]
+jullo = "julio"
+junlo = "junio"
+julio = "julio"
+enero = "enero"
+febrero = "febrero"
+marzo = "marzo"
+abril = "abril"
+mayo = "mayo"
+agosto = "agosto"
+setiembre = "septiembre"
+octubre = "octubre"
+noviembre = "noviembre"
+diziembre = "diciembre"

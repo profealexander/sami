@@ -1,19 +1,28 @@
 """
 parsers.py — Parser unico de texto OCR.
 
-Consume los patrones de config/patrones_ocr.py.
+Carga los patrones desde config/patrones_ocr.toml.
 Todos los providers llaman a parsear_campos() en vez de tener su propio parsing.
 """
 
 import re
+import tomllib
+from pathlib import Path
 
-from config.patrones_ocr import PATRONES, MESES_ES, MESES_FALLBACK
+_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "patrones_ocr.toml"
+
+with open(_CONFIG_PATH, "rb") as f:
+    _cfg = tomllib.load(f)
+
+MESES_ES = _cfg["meses"]
+MESES_FALLBACK = _cfg["meses_fallback"]
+PATRONES = _cfg["patrones"]
 
 RE_CAJERO = re.compile(PATRONES["cajero"][0], re.IGNORECASE)
 RE_FECHA = re.compile(PATRONES["fecha_numerica"][0])
 RE_HORA = re.compile(PATRONES["hora"][0], re.IGNORECASE)
 RE_VENTA = re.compile(PATRONES["no_venta"][0], re.IGNORECASE)
-RE_MONTO = re.compile(PATRONES["monto"][1], re.IGNORECASE)
+RE_MONTO = re.compile(PATRONES["monto"][0], re.IGNORECASE)
 RE_DESTINATARIO = re.compile(PATRONES["destinatario"][1], re.IGNORECASE)
 
 _regex_cache = {}
@@ -54,25 +63,21 @@ def parsear_campos(texto):
         if not linea:
             continue
 
-        # ── Cajero ──
         if not resultado["cajero"]:
             m = _match_simple(linea, _compilar("cajero"))
             if m:
                 resultado["cajero"] = m.group(1).strip()
 
-        # ── Destinatario ──
         if not resultado["destinatario"]:
             m = _match_simple(linea, _compilar("destinatario"))
             if m:
                 resultado["destinatario"] = m.group(1).strip()
 
-        # ── Monto ──
         if not resultado["monto"]:
             m = _match_simple(linea, _compilar("monto"))
             if m:
                 resultado["monto"] = m.group(1).replace(",", "")
 
-        # ── Fecha numerica (dd/mm/aaaa) ──
         if not resultado["fecha"]:
             for r in _compilar("fecha_numerica"):
                 m = r.search(linea)
@@ -82,7 +87,6 @@ def parsear_campos(texto):
                         resultado["fecha"] = f"{int(d):02d}/{int(mes):02d}/{a}"
                         break
 
-        # ── Fecha textual (El dd de mes de aaaa) ──
         if not resultado["fecha"]:
             for r in _compilar("fecha_textual"):
                 m = r.search(linea)
@@ -97,7 +101,6 @@ def parsear_campos(texto):
                         resultado["fecha"] = f"{int(dia):02d}/{mes_num:02d}/{anio}"
                     break
 
-        # ── Hora ──
         if not resultado["hora"]:
             for r in _compilar("hora"):
                 m = r.search(linea)
@@ -107,7 +110,6 @@ def parsear_campos(texto):
                         resultado["hora"] = f"{h:02d}:{mi:02d}"
                     break
 
-        # ── Numero de comprobante ──
         if not resultado["no_venta"]:
             m = _match_simple(linea, _compilar("no_venta"))
             if m:
