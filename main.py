@@ -8,7 +8,16 @@ Delega la logica de negocio a service.py.
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request, Header
+from fastapi import (
+    FastAPI,
+    UploadFile,
+    File,
+    Form,
+    Depends,
+    HTTPException,
+    Request,
+    Header,
+)
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -59,7 +68,9 @@ app = FastAPI(title="SAMI - Servidor de Comprobantes OCR")
 
 # Validar CORS en producción
 if server_config.env == "production" and server_config.cors_origins == ["*"]:
-    logger.warning("CORS * configurado en producción — riesgo de seguridad. Configurar CORS_ORIGINS explícito.")
+    logger.warning(
+        "CORS * configurado en producción — riesgo de seguridad. Configurar CORS_ORIGINS explícito."
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -74,7 +85,9 @@ app.add_middleware(
 @app.middleware("http")
 async def csp_middleware(request, call_next):
     response = await call_next(request)
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:"
+    )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     return response
@@ -88,10 +101,12 @@ async def startup_event():
     """Inicializar tablas de BD al arrancar el servidor."""
     from database.engine import engine
     from database.models import Base
+
     Base.metadata.create_all(bind=engine)
     logger.info(
         "Base de datos inicializada correctamente | workers=%d | io_pool_size=%d",
-        server_config.workers, server_config.io_pool_size,
+        server_config.workers,
+        server_config.io_pool_size,
     )
 
 
@@ -102,7 +117,10 @@ async def shutdown_event():
     logger.info("Executor de I/O cerrado correctamente")
 
 
-@app.get("/health", description="Verifica que el servidor esta vivo y funcionando correctamente")
+@app.get(
+    "/health",
+    description="Verifica que el servidor esta vivo y funcionando correctamente",
+)
 def health_check():
     """Health check. Retorna estado, version, entorno y estado de BD."""
     from sqlalchemy import text
@@ -130,17 +148,27 @@ def health_check():
     return status
 
 
-@app.get("/", description="Sirve el frontend PWA para captura de comprobantes desde el movil")
+@app.get(
+    "/", description="Sirve el frontend PWA para captura de comprobantes desde el movil"
+)
 def leer_index():
     """Sirve el frontend PWA (static/index.html) para uso desde el movil."""
     return FileResponse("static/index.html")
 
 
-@app.post("/api/upload", description="Sube una foto de comprobante y extrae su texto mediante OCR")
+@app.post(
+    "/api/upload",
+    description="Sube una foto de comprobante y extrae su texto mediante OCR",
+)
 async def subir_comprobante(
     request: Request,
-    imagen: UploadFile = File(..., description="Imagen del comprobante en formato JPG, PNG o WebP"),
-    cliente_id: str = Form(..., description="Identificador unico del cliente, tienda o cajero (ej: 'tienda_001')"),
+    imagen: UploadFile = File(
+        ..., description="Imagen del comprobante en formato JPG, PNG o WebP"
+    ),
+    cliente_id: str = Form(
+        ...,
+        description="Identificador unico del cliente, tienda o cajero (ej: 'tienda_001')",
+    ),
     db: Session = Depends(get_db),
     x_api_key: str = Header(default=""),
 ):
@@ -160,7 +188,9 @@ async def subir_comprobante(
     # limitar por cliente_id si eso empieza a causar falsos positivos.
     client_ip = request.client.host if request and request.client else "unknown"
     if not _rate_limiter.permitir(client_ip):
-        raise HTTPException(status_code=429, detail="Rate limit excedido. Intente mas tarde.")
+        raise HTTPException(
+            status_code=429, detail="Rate limit excedido. Intente mas tarde."
+        )
 
     # Autenticación (solo en producción)
     if server_config.env == "production" and not validar_api_key(x_api_key):
@@ -183,6 +213,7 @@ async def subir_comprobante(
         # Guardar directamente a disco con streaming
         import tempfile
         from pathlib import Path
+
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir="uploads")
         total_bytes = 0
         while True:
@@ -193,7 +224,9 @@ async def subir_comprobante(
             total_bytes += len(chunk)
         tmp.close()
 
-        safe_filename = (imagen.filename or "unknown").replace("\n", "").replace("\r", "")
+        safe_filename = (
+            (imagen.filename or "unknown").replace("\n", "").replace("\r", "")
+        )
         logger.info(
             "Upload recibido — filename=%s | size=%d KB | cliente=%s",
             safe_filename,
@@ -209,18 +242,25 @@ async def subir_comprobante(
 
         # Mover a nombre final con UUID
         import uuid
+
         ruta_final = Path("uploads") / f"{uuid.uuid4().hex}{ext}"
         Path(tmp.name).rename(ruta_final)
         ruta_imagen = str(ruta_final)
 
         respuesta = await asyncio.get_running_loop().run_in_executor(
-            _io_executor, service.procesar_y_guardar_comprobante, db, ruta_imagen, cliente_id
+            _io_executor,
+            service.procesar_y_guardar_comprobante,
+            db,
+            ruta_imagen,
+            cliente_id,
         )
 
         registro = respuesta.registro
         logger.info(
             "Upload exitoso — id=%s | cliente=%s | transfiere=%s",
-            registro.id, cliente_id, registro.transfiere or "N/A",
+            registro.id,
+            cliente_id,
+            registro.transfiere or "N/A",
         )
 
         return {
@@ -253,7 +293,7 @@ async def subir_comprobante(
     except HTTPException:
         raise
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error inesperado en /api/upload")
         raise HTTPException(
             status_code=500,

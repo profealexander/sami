@@ -38,11 +38,14 @@ class CloudinaryStorageProvider(StorageProvider):
             logger.info("Imagen subida a Cloudinary: %s", url)
             return url
         except Exception as e:
-            raise StorageError(mensaje=f"Error subiendo a Cloudinary: {e}", backend="cloudinary") from e
+            raise StorageError(
+                mensaje=f"Error subiendo a Cloudinary: {e}", backend="cloudinary"
+            ) from e
 
     def resolver_ruta(self, ruta: str) -> str:
         """Descarga imagen de Cloudinary a temporal para OCR."""
         import requests
+
         logger.info("Descargando imagen remota: %s", ruta)
         resp = requests.get(ruta, timeout=30)
         resp.raise_for_status()

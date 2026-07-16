@@ -26,13 +26,13 @@ RE_CLIENTE_ID = re.compile(r"^[a-zA-Z0-9_-]{1,50}$")
 class UploadValidator:
     """Validador de archivos con estado encapsulado."""
 
-    def __init__(self, max_size_mb: int = 10, allowed_extensions: str = ".jpg,.jpeg,.png,.webp"):
+    def __init__(
+        self, max_size_mb: int = 10, allowed_extensions: str = ".jpg,.jpeg,.png,.webp"
+    ):
         self.max_size_mb = max_size_mb
         self.max_size_bytes = max_size_mb * 1024 * 1024
         self.allowed_extensions = {
-            ext.strip().lower()
-            for ext in allowed_extensions.split(",")
-            if ext.strip()
+            ext.strip().lower() for ext in allowed_extensions.split(",") if ext.strip()
         }
         self.allowed_mimes = {"image/jpeg", "image/png", "image/webp"}
 
@@ -79,14 +79,18 @@ class UploadValidator:
             return  # No validar si no se reporta
         ext = Path(filename).suffix.lower()
         mime_esperado = {
-            ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-            ".png": "image/png", ".webp": "image/webp",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
         }.get(ext)
         if mime_esperado and content_type != mime_esperado:
             # Advertencia pero no bloquear — el usuario puede haber enviado el MIME incorrecto
             pass
 
-    def validar_archivo(self, contenido: bytes, filename: str, content_type: str | None = None):
+    def validar_archivo(
+        self, contenido: bytes, filename: str, content_type: str | None = None
+    ):
         """Ejecuta todas las validaciones en orden."""
         self.validar_tamano(contenido)
         self.validar_extension(filename)
@@ -102,7 +106,9 @@ _validator = UploadValidator()
 def configure(max_size_mb: int, allowed_extensions: str):
     """Configura los límites desde settings.py."""
     global _validator
-    _validator = UploadValidator(max_size_mb=max_size_mb, allowed_extensions=allowed_extensions)
+    _validator = UploadValidator(
+        max_size_mb=max_size_mb, allowed_extensions=allowed_extensions
+    )
 
 
 def validar_tamano(contenido: bytes):
@@ -154,7 +160,7 @@ def sanitizar_filename(filename: str) -> str:
     nombre = Path(filename).name
 
     # Reemplazar caracteres peligrosos
-    caracteres_peligrosos = "/\\:*?\"<>|"
+    caracteres_peligrosos = '/\\:*?"<>|'
     for c in caracteres_peligrosos:
         nombre = nombre.replace(c, "_")
 

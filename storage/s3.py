@@ -33,7 +33,9 @@ def _obtener_cliente_s3(cfg):
         }
         if cfg.s3_endpoint:
             client_kwargs["endpoint_url"] = cfg.s3_endpoint
-        _s3_client = boto3.client("s3", config=Config(retries={"max_attempts": 3}), **client_kwargs)
+        _s3_client = boto3.client(
+            "s3", config=Config(retries={"max_attempts": 3}), **client_kwargs
+        )
         _s3_config_hash = config_hash
     return _s3_client
 
@@ -71,6 +73,7 @@ class S3StorageProvider(StorageProvider):
     def resolver_ruta(self, ruta: str) -> str:
         """Descarga imagen de S3 a temporal para OCR."""
         import requests
+
         logger.info("Descargando imagen remota: %s", ruta)
         resp = requests.get(ruta, timeout=30)
         resp.raise_for_status()

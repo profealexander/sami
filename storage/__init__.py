@@ -41,6 +41,7 @@ def get_storage_backend() -> StorageProvider:
         from storage.local import LocalStorageProvider
         from storage.s3 import S3StorageProvider
         from storage.cloudinary import CloudinaryStorageProvider
+
         registrar_storage("local", LocalStorageProvider)
         registrar_storage("s3", S3StorageProvider)
         registrar_storage("cloudinary", CloudinaryStorageProvider)

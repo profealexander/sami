@@ -7,7 +7,6 @@ import pytest
 from PIL import Image
 
 from utils.upload_validator import (
-    validar_archivo,
     validar_tamano,
     validar_extension,
     validar_tipo_real,

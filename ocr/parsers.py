@@ -31,9 +31,7 @@ _regex_cache = {}
 
 def _compilar(nombre):
     if nombre not in _regex_cache:
-        _regex_cache[nombre] = [
-            re.compile(p, re.IGNORECASE) for p in PATRONES[nombre]
-        ]
+        _regex_cache[nombre] = [re.compile(p, re.IGNORECASE) for p in PATRONES[nombre]]
     return _regex_cache[nombre]
 
 

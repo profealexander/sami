@@ -17,15 +17,13 @@ de entorno cuando se necesite un ajuste manual fino.
 import os
 from dataclasses import dataclass
 
-from config.common import PROJECT_ROOT
-
 
 @dataclass
 class ServerConfig:
     """Configuración del servidor y la infraestructura."""
 
     # ── Entorno ──
-    env: str = "development"           # development | production
+    env: str = "development"  # development | production
     host: str = "0.0.0.0"
     port: int = 8000
 
@@ -50,7 +48,7 @@ class ServerConfig:
     s3_region: str = ""
     s3_access_key: str = ""
     s3_secret_key: str = ""
-    s3_endpoint: str = ""              # Para Backblaze B2 o S3 compatible
+    s3_endpoint: str = ""  # Para Backblaze B2 o S3 compatible
 
     # Cloudinary (solo si storage_backend=cloudinary)
     cloudinary_url: str = ""
@@ -60,6 +58,7 @@ class ServerConfig:
 
     def __repr__(self) -> str:
         """Repr con secrets enmascarados."""
+
         def _mascara(valor: str, mostrar: int = 4) -> str:
             if not valor or len(valor) <= mostrar:
                 return "***"
@@ -103,7 +102,9 @@ class ServerConfig:
 
         # CORS: por defecto todo en dev, específico en prod
         cors_raw = os.getenv("CORS_ORIGINS", "*").strip()
-        cors_list = ["*"] if cors_raw == "*" else [o.strip() for o in cors_raw.split(",")]
+        cors_list = (
+            ["*"] if cors_raw == "*" else [o.strip() for o in cors_raw.split(",")]
+        )
 
         workers_final = int(os.getenv("WORKERS", str(workers_default)))
         reload_final = os.getenv("RELOAD", str(reload_default)).lower() == "true"
@@ -117,27 +118,26 @@ class ServerConfig:
 
         return cls(
             env=env,
-            host=os.getenv("HOST", "127.0.0.1" if env == "development" else "0.0.0.0").strip(),
+            host=os.getenv(
+                "HOST", "127.0.0.1" if env == "development" else "0.0.0.0"
+            ).strip(),
             port=int(os.getenv("PORT", "8000")),
             workers=workers_final,
             io_pool_size=int(os.getenv("IO_POOL_SIZE", str(io_pool_default))),
             reload=reload_final,
             log_level=os.getenv("LOG_LEVEL", log_default).strip(),
             cors_origins=cors_list,
-
-            database_url=os.getenv("DATABASE_URL", "sqlite:///./comprobantes.db").strip(),
+            database_url=os.getenv(
+                "DATABASE_URL", "sqlite:///./comprobantes.db"
+            ).strip(),
             db_pool_size=int(os.getenv("DB_POOL_SIZE", "10")),
-
             storage_backend=os.getenv("STORAGE_BACKEND", "local").strip().lower(),
-
             s3_bucket=os.getenv("S3_BUCKET", "").strip(),
             s3_region=os.getenv("S3_REGION", "").strip(),
             s3_access_key=os.getenv("S3_ACCESS_KEY", "").strip(),
             s3_secret_key=os.getenv("S3_SECRET_KEY", "").strip(),
             s3_endpoint=os.getenv("S3_ENDPOINT", "").strip(),
-
             cloudinary_url=os.getenv("CLOUDINARY_URL", "").strip(),
-
             rate_limit=int(os.getenv("RATE_LIMIT", "100")),
         )
 

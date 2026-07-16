@@ -13,6 +13,7 @@ from typing import Optional
 @dataclass
 class OCRResult:
     """Resultado estandarizado del OCR, sin importar el proveedor."""
+
     transfiere: Optional[str] = None
     no_comprobante: Optional[str] = None
     monto: Optional[str] = None

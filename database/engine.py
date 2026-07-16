@@ -24,6 +24,7 @@ DATABASE_URL = server_config.database_url
 
 # ── Fábrica de engines ──
 
+
 def create_engine_from_url() -> object:
     """Retorna el engine SQLAlchemy correspondiente a DATABASE_URL."""
     url = DATABASE_URL

@@ -60,8 +60,7 @@ def comprimir_imagen(
     if activar_si_excede_dim > 0:
         img = Image.open(io.BytesIO(datos))
         necesita_resize = (
-            img.width > activar_si_excede_dim or
-            img.height > activar_si_excede_dim
+            img.width > activar_si_excede_dim or img.height > activar_si_excede_dim
         )
 
     if necesita_resize:

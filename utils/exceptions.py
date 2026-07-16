@@ -8,6 +8,7 @@ sin depender de excepciones genéricas.
 
 class SAMIError(Exception):
     """Error base del sistema SAMI."""
+
     def __init__(self, mensaje: str, causa: str = ""):
         self.mensaje = mensaje
         self.causa = causa
@@ -21,6 +22,7 @@ class OCRError(SAMIError):
         proveedor: Nombre del proveedor que falló (gemini, tesseract, ocrspace)
         causa: Descripción del error técnico
     """
+
     def __init__(self, proveedor: str, causa: str = ""):
         self.proveedor = proveedor
         super().__init__(
@@ -36,6 +38,7 @@ class StorageError(SAMIError):
         backend: Nombre del backend (local, s3, cloudinary)
         causa: Descripción del error técnico
     """
+
     def __init__(self, backend: str, causa: str = ""):
         self.backend = backend
         super().__init__(
@@ -51,6 +54,7 @@ class UploadValidationError(SAMIError):
         codigo: Código HTTP sugerido (413, 415, 422)
         causa: Descripción del error
     """
+
     def __init__(self, codigo: int, causa: str = ""):
         self.codigo = codigo
         super().__init__(

@@ -2,7 +2,6 @@
 
 import io
 
-import pytest
 from PIL import Image
 
 from ocr.compresion import comprimir_imagen

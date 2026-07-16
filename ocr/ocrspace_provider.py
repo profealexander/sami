@@ -25,6 +25,7 @@ API_URL = "https://api.ocr.space/parse/image"
 @dataclass
 class OCRSpaceConfig:
     """Parámetros ajustables de OCR.space."""
+
     api_key: str = ""
     language: str = "spa"
     engine: int = 2
@@ -70,7 +71,8 @@ class OCRSpaceProvider(OCRProvider):
 
         logger.debug(
             "Enviando a OCR.space: %s (%d KB)",
-            ruta_imagen, len(imagen_b64) // 1024,
+            ruta_imagen,
+            len(imagen_b64) // 1024,
         )
 
         try:
@@ -108,9 +110,7 @@ class OCRSpaceProvider(OCRProvider):
             return OCRResult(texto_completo="", proveedor=self.nombre)
 
         texto_completo = resultados[0].get("ParsedText", "")
-        logger.debug(
-            "OCR.space OK — %d caracteres extraidos", len(texto_completo)
-        )
+        logger.debug("OCR.space OK — %d caracteres extraidos", len(texto_completo))
         campos = parsear_campos(texto_completo)
 
         return OCRResult(

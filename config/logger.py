@@ -53,9 +53,7 @@ def setup_logging(
     # ── Handler de consola (siempre activo) ──
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(numeric_level)
-    console_handler.setFormatter(
-        logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
-    )
+    console_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
 
     # ── Configurar logger raíz sami ──
     root_logger = logging.getLogger("sami")
@@ -71,7 +69,9 @@ def setup_logging(
 
         file_handler = logging.handlers.TimedRotatingFileHandler(
             filename=str(log_path),
-            when="midnight", interval=1, backupCount=7,
+            when="midnight",
+            interval=1,
+            backupCount=7,
             encoding="utf-8",
         )
         file_handler.setLevel(numeric_level)

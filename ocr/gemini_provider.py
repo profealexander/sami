@@ -27,6 +27,7 @@ def _obtener_cliente_gemini(api_key: str, timeout: int = 30):
     """Retorna cliente Gemini singleton, creándolo solo si cambia la API key."""
     global _gemini_client, _gemini_api_key
     from google import genai
+
     if _gemini_client is None or _gemini_api_key != api_key:
         _gemini_client = genai.Client(
             api_key=api_key,
@@ -39,6 +40,7 @@ def _obtener_cliente_gemini(api_key: str, timeout: int = 30):
 @dataclass
 class GeminiConfig:
     """Parámetros ajustables de Gemini OCR."""
+
     api_key: str = ""
     model: str = "gemini-2.0-flash"
     timeout: int = 30
@@ -104,11 +106,17 @@ class GeminiProvider(OCRProvider):
 
         logger.debug(
             "Enviando imagen a Gemini: %s (%d bytes)",
-            ruta_imagen, len(imagen_bytes),
+            ruta_imagen,
+            len(imagen_bytes),
         )
 
         # Detectar MIME type desde extensión
-        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+        mime_map = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+        }
         mime = mime_map.get(Path(ruta_imagen).suffix.lower(), "image/jpeg")
 
         try:
@@ -131,9 +139,7 @@ class GeminiProvider(OCRProvider):
             ) from e
 
         texto_respuesta = response.text.strip()
-        logger.debug(
-            "Respuesta Gemini recibida (%d caracteres)", len(texto_respuesta)
-        )
+        logger.debug("Respuesta Gemini recibida (%d caracteres)", len(texto_respuesta))
         datos = self._parsear_json(texto_respuesta)
         if not any(datos.get(k) for k in ("transfiere", "no_comprobante", "monto")):
             logger.warning(
@@ -156,14 +162,14 @@ class GeminiProvider(OCRProvider):
         except json.JSONDecodeError:
             pass
 
-        m = re.search(r'```(?:json)?\s*([\s\S]*?)```', texto)
+        m = re.search(r"```(?:json)?\s*([\s\S]*?)```", texto)
         if m:
             try:
                 return json.loads(m.group(1))
             except json.JSONDecodeError:
                 pass
 
-        m = re.search(r'\{[\s\S]*\}', texto)
+        m = re.search(r"\{[\s\S]*\}", texto)
         if m:
             try:
                 return json.loads(m.group(0))

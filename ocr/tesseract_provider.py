@@ -40,10 +40,11 @@ RUTAS_POR_DEFECTO = [
 @dataclass
 class TesseractConfig:
     """Parámetros ajustables de Tesseract OCR."""
+
     cmd: str = ""
     lang: str = "spa"
     scale: float = 2.0
-    threshold: int = 0       # 0 = Otsu automático
+    threshold: int = 0  # 0 = Otsu automático
     denoise: bool = True
     psm: int = 3
     max_concurrent: int = 1
@@ -69,7 +70,9 @@ class TesseractConfig:
             threshold=int(os.getenv("TESSERACT_THRESHOLD", "0")),
             denoise=os.getenv("TESSERACT_DENOISE", "true").lower() == "true",
             psm=int(os.getenv("TESSERACT_PSM", "3")),
-            max_concurrent=int(os.getenv("TESSERACT_MAX_CONCURRENT", str(concurrent_default))),
+            max_concurrent=int(
+                os.getenv("TESSERACT_MAX_CONCURRENT", str(concurrent_default))
+            ),
         )
         # Auto-detectar ruta si no se especificó
         if not cfg.cmd or not os.path.exists(cfg.cmd):
@@ -128,7 +131,9 @@ class TesseractProvider(OCRProvider):
 
             # Cache simple: hash de la imagen + config
             cache_key = hashlib.md5(img.tobytes()).hexdigest()
-            cache_key += f":{self.config.scale}:{self.config.threshold}:{self.config.denoise}"
+            cache_key += (
+                f":{self.config.scale}:{self.config.threshold}:{self.config.denoise}"
+            )
 
             if self._cache is None or self._cache.get("key") != cache_key:
                 img_preprocesada = self._preprocesar(img)
@@ -172,5 +177,3 @@ class TesseractProvider(OCRProvider):
         elif self.config.threshold < 255:
             img = img.point(lambda p: 255 if p > self.config.threshold else 0)
         return img
-
-

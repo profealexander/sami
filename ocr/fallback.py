@@ -47,7 +47,8 @@ class CircuitBreaker:
             self._bloqueado_hasta = time.time() + self.timeout_segundos
             logger.warning(
                 "Circuit breaker abierto — bloqueando proveedor por %ds tras %d fallos",
-                self.timeout_segundos, self._fallos,
+                self.timeout_segundos,
+                self._fallos,
             )
 
 

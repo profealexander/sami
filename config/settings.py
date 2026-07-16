@@ -7,15 +7,22 @@ en su respectivo archivo (ocr/tesseract_provider.py, etc.).
 
 Jerarquía de resolución:
 1. Variable de entorno del sistema (Linux/Docker)
-2. Archivo .env
-3. Valores por defecto
+2. Archivo .env raíz
+3. Archivo ocr/.env
+4. Valores por defecto
 """
 
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from config.common import PROJECT_ROOT
+
+# Cargar configuración OCR antes de que Settings.load() lea las variables.
+# override=False: vars del sistema y del .env raíz tienen prioridad.
+load_dotenv(PROJECT_ROOT / "ocr" / ".env", override=False)
 
 
 @dataclass
@@ -43,7 +50,9 @@ class Settings:
             upload_dir=os.getenv("UPLOAD_DIR", "uploads").strip(),
             ocr_provider=os.getenv("OCR_PROVIDER", "ocrspace").strip().lower(),
             max_upload_size_mb=int(os.getenv("MAX_UPLOAD_SIZE_MB", "10")),
-            allowed_extensions=os.getenv("ALLOWED_EXTENSIONS", ".jpg,.jpeg,.png,.webp").strip(),
+            allowed_extensions=os.getenv(
+                "ALLOWED_EXTENSIONS", ".jpg,.jpeg,.png,.webp"
+            ).strip(),
             log_file=os.getenv("LOG_FILE", "").strip(),
         )
 

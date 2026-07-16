@@ -14,6 +14,7 @@ from database.engine import Base
 
 class Comprobante(Base):
     """Modelo ORM de la tabla comprobantes."""
+
     __tablename__ = "comprobantes"
 
     id = Column(Integer, primary_key=True, index=True)

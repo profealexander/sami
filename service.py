@@ -5,19 +5,14 @@ Orquesta: recibe imagen → guarda (via storage provider) → OCR (via ocr engin
 NO contiene logica directa de OCR ni de almacenamiento.
 """
 
-import os
-import tempfile
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-import requests
 
 from sqlalchemy.orm import Session
 
 from config.logger import get_logger
-from config.server import server_config
-from config.settings import PROJECT_ROOT
 from database import Comprobante
 from ocr import get_ocr_engine
 from storage import get_storage_backend
@@ -29,6 +24,7 @@ logger = get_logger("service")
 @dataclass
 class ComprobanteResponse:
     """Representación de la respuesta API, separada del modelo ORM."""
+
     registro: Comprobante
     transfiere: str | None
     no_comprobante: str | None
@@ -93,9 +89,15 @@ def procesar_y_guardar_comprobante(
 
     # ── Valores extraídos ──
     transfiere = resultado.transfiere if resultado and resultado.transfiere else None
-    no_comprobante = resultado.no_comprobante if resultado and resultado.no_comprobante else None
+    no_comprobante = (
+        resultado.no_comprobante if resultado and resultado.no_comprobante else None
+    )
     monto = resultado.monto if resultado and resultado.monto else None
-    texto_ocr_crudo = resultado.texto_completo.strip() if resultado and resultado.texto_completo.strip() else None
+    texto_ocr_crudo = (
+        resultado.texto_completo.strip()
+        if resultado and resultado.texto_completo.strip()
+        else None
+    )
 
     # ── Guardar en BD ──
     nuevo_comprobante = Comprobante(

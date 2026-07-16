@@ -20,7 +20,7 @@ if __name__ == "__main__":
     setup_logging(
         level=server_config.log_level,
         log_file=settings.log_file if settings.log_file else None,
-        project_root=__import__('pathlib').Path(__file__).parent,
+        project_root=__import__("pathlib").Path(__file__).parent,
     )
 
     logger = get_logger("run")

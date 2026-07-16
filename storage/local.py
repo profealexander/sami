@@ -32,7 +32,9 @@ class LocalStorageProvider(StorageProvider):
         ruta_absoluta = PROJECT_ROOT / ruta_relativa
         ruta_absoluta.parent.mkdir(parents=True, exist_ok=True)
         ruta_absoluta.write_bytes(imagen_bytes)
-        logger.info("Imagen guardada: %s (%d KB)", ruta_relativa, len(imagen_bytes) // 1024)
+        logger.info(
+            "Imagen guardada: %s (%d KB)", ruta_relativa, len(imagen_bytes) // 1024
+        )
         return ruta_relativa
 
     def resolver_ruta(self, ruta: str) -> str:
