@@ -1,6 +1,8 @@
 # ── Entorno y secretos ──
 .env
 !.env.example
+ocr/.env
+!ocr/.env.example
 
 # ── Base de datos local ──
 *.db

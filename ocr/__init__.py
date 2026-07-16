@@ -6,7 +6,7 @@ Uso:
     engine = get_ocr_engine()
     resultado = engine.extraer_campos("uploads/foto.jpg")
 
-Proveedores disponibles (según OCR_PROVIDER en .env):
+Proveedores disponibles (según OCR_PROVIDER en .env o ocr/.env):
     ocrspace  → OCR.space API (online) con fallback a Tesseract
     gemini    → Google Gemini API con fallback a Tesseract
     tesseract → solo Tesseract local (sin internet)
@@ -25,6 +25,11 @@ tasa de llamadas al proveedor primario).
 """
 
 import os
+
+# Cargar defaults OCR (ocr/.env) antes que cualquier otra importación
+# para que las variables estén disponibles cuando settings.py se ejecute.
+import ocr.env_loader  # noqa: F401
+
 from config.settings import settings
 from ocr.base import OCRProvider
 from config.logger import get_logger
