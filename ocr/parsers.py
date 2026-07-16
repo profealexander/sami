@@ -20,11 +20,11 @@ MESES_FALLBACK = _cfg["meses_fallback"]
 PATRONES = _cfg["patrones"]
 
 RE_CAJERO = re.compile(PATRONES["cajero"][0], re.IGNORECASE)
-RE_FECHA = re.compile(PATRONES["fecha_numerica"][0])
-RE_HORA = re.compile(PATRONES["hora"][0], re.IGNORECASE)
+# RE_FECHA = re.compile(PATRONES["fecha_numerica"][0])       # Disponible para uso futuro
+# RE_HORA = re.compile(PATRONES["hora"][0], re.IGNORECASE)  # Disponible para uso futuro
 RE_VENTA = re.compile(PATRONES["no_venta"][0], re.IGNORECASE)
 RE_MONTO = re.compile(PATRONES["monto"][0], re.IGNORECASE)
-RE_DESTINATARIO = re.compile(PATRONES["destinatario"][1], re.IGNORECASE)
+# RE_DESTINATARIO = re.compile(PATRONES["destinatario"][1], re.IGNORECASE)  # Disponible para uso futuro
 
 _regex_cache = {}
 

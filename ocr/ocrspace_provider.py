@@ -13,6 +13,7 @@ import requests
 
 from config.logger import get_logger
 from ocr.base import OCRProvider, OCRResult
+from ocr.compresion import comprimir_imagen
 from ocr.parsers import parsear_campos
 from utils.exceptions import OCRError
 
@@ -63,11 +64,7 @@ class OCRSpaceProvider(OCRProvider):
         with open(ruta_imagen, "rb") as f:
             imagen_bytes = f.read()
 
-        # Comprimir imagen si es muy grande (>1MB)
-        if len(imagen_bytes) > 1_000_000:
-            from pathlib import Path
-            from ocr.gemini_provider import _comprimir_imagen
-            imagen_bytes = _comprimir_imagen(Path(ruta_imagen))
+        imagen_bytes = comprimir_imagen(imagen_bytes)
 
         imagen_b64 = base64.b64encode(imagen_bytes).decode("utf-8")
 

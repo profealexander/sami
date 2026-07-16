@@ -1,0 +1,10 @@
+[compresion]
+# Umbrales de activación — comprime solo si supera ALGUNO (0 = desactivado)
+activar_si_excede_bytes = 1_000_000
+activar_si_excede_dim  = 4000
+
+# Parámetros de compresión
+max_dim    = 4000   # 0 = no redimensionar
+quality    = 85     # 1-100
+formato    = "JPEG" # JPEG | WEBP | PNG
+optimizar  = true   # optimize=True en Pillow

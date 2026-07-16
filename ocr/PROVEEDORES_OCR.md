@@ -117,7 +117,7 @@ El `FallbackProvider` incluye un circuit breaker que protege contra APIs degrada
 from ocr.parsers import parsear_campos
 
 resultado = parsear_campos(texto_ocr)
-# {"cajero": "...", "fecha": "...", "hora": "...", "no_venta": "...", "monto": "...", "destinatario": "..."}
+# {"transfiere": "...", "monto": "...", "no_comprobante": "...", "texto_completo": "..."}
 ```
 
 **Regex pre-compilados:**

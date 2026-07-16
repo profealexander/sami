@@ -102,6 +102,7 @@ class TesseractProvider(OCRProvider):
     def __init__(self):
         self.config = TesseractConfig.from_env()
         self._semaphore = _get_tesseract_semaphore(self.config.max_concurrent)
+        self._cache = None
         if self.config.cmd and os.path.exists(self.config.cmd):
             pytesseract.pytesseract.tesseract_cmd = self.config.cmd
 
@@ -129,7 +130,7 @@ class TesseractProvider(OCRProvider):
             cache_key = hashlib.md5(img.tobytes()).hexdigest()
             cache_key += f":{self.config.scale}:{self.config.threshold}:{self.config.denoise}"
 
-            if not hasattr(self, "_cache") or self._cache.get("key") != cache_key:
+            if self._cache is None or self._cache.get("key") != cache_key:
                 img_preprocesada = self._preprocesar(img)
                 self._cache = {"key": cache_key, "img": img_preprocesada}
             else:

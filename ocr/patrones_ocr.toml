@@ -5,7 +5,7 @@
 
 [patrones]
 cajero = [
-    '(?:CAJERO|ATENDIO|ATENDIO|CAJER@|VENDEDOR|EMPLEADO)\s*[\:\-]?\s*(.+)',
+    '(?:CAJERO|ATENDIO|CAJER@|VENDEDOR|EMPLEADO)\s*[\:\-]?\s*(.+)',
     '^De\s+(.+)$',
 ]
 

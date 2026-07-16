@@ -5,47 +5,33 @@ Configuración auto-contenida en GeminiConfig.
 Parámetros desde .env.
 """
 
-import io
 import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image
-
 from config.logger import get_logger
 from ocr.base import OCRProvider, OCRResult
+from ocr.compresion import comprimir_imagen
 from utils.exceptions import OCRError
 
 logger = get_logger("gemini")
-
-
-def _comprimir_imagen(imagen_path: Path, max_size: int = 1024) -> bytes:
-    """Comprime imagen para reducir payload antes de enviar a API."""
-    img = Image.open(imagen_path)
-    # Reducir dimensiones si es muy grande
-    if img.width > max_size or img.height > max_size:
-        img.thumbnail((max_size, max_size), Image.LANCZOS)
-    # Convertir a RGB si tiene canal alfa
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    # Guardar como JPEG comprimido
-    buffer = io.BytesIO()
-    img.save(buffer, format="JPEG", quality=85, optimize=True)
-    return buffer.getvalue()
 
 # Singleton para cliente Gemini (reutiliza conexión HTTP)
 _gemini_client = None
 _gemini_api_key = None
 
 
-def _obtener_cliente_gemini(api_key: str):
+def _obtener_cliente_gemini(api_key: str, timeout: int = 30):
     """Retorna cliente Gemini singleton, creándolo solo si cambia la API key."""
     global _gemini_client, _gemini_api_key
     from google import genai
     if _gemini_client is None or _gemini_api_key != api_key:
-        _gemini_client = genai.Client(api_key=api_key)
+        _gemini_client = genai.Client(
+            api_key=api_key,
+            http_options={"timeout": timeout * 1000},
+        )
         _gemini_api_key = api_key
     return _gemini_client
 
@@ -104,13 +90,17 @@ class GeminiProvider(OCRProvider):
             )
 
         # Singleton: reutilizar cliente HTTP
-        client = _obtener_cliente_gemini(self.config.api_key)
+        client = _obtener_cliente_gemini(self.config.api_key, self.config.timeout)
         imagen_path = Path(ruta_imagen)
 
-        # Comprimir imagen si es muy grande (>1MB)
-        imagen_bytes = imagen_path.read_bytes()
-        if len(imagen_bytes) > 1_000_000:
-            imagen_bytes = _comprimir_imagen(imagen_path)
+        imagen_bytes = comprimir_imagen(imagen_path.read_bytes())
+
+        if not imagen_bytes:
+            logger.error("Imagen vacía: %s", ruta_imagen)
+            raise OCRError(
+                proveedor="gemini",
+                causa="La imagen está vacía o no pudo leerse",
+            )
 
         logger.debug(
             "Enviando imagen a Gemini: %s (%d bytes)",
@@ -118,7 +108,6 @@ class GeminiProvider(OCRProvider):
         )
 
         # Detectar MIME type desde extensión
-        from pathlib import Path
         mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
         mime = mime_map.get(Path(ruta_imagen).suffix.lower(), "image/jpeg")
 
