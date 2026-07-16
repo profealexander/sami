@@ -9,7 +9,7 @@ import re
 import tomllib
 from pathlib import Path
 
-_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "patrones_ocr.toml"
+_CONFIG_PATH = Path(__file__).resolve().parent / "patrones_ocr.toml"
 
 with open(_CONFIG_PATH, "rb") as f:
     _cfg = tomllib.load(f)
