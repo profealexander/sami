@@ -2,7 +2,7 @@ services:
   sami:
     build: .
     ports:
-      - "${PORT:-8000}:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     env_file: .env
     environment:
       - ENV=production
@@ -14,7 +14,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-8000}/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

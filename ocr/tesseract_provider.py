@@ -9,10 +9,20 @@ Patrones de extracción soportados:
   - Transferencias: $ monto, De (remitente), A (destinatario), fecha textual
   - Fechas:         DD/MM/AAAA, DD-MM-AAAA, "El DD de mes de AAAA"
   - Horas:          HH:MM
+
+NOTA SOBRE CONCURRENCIA:
+Tesseract es CPU-bound. TESSERACT_MAX_CONCURRENT limita cuántas
+instancias corren en paralelo DENTRO de este proceso, para no saturar
+los cores disponibles cuando varias imágenes caen a fallback al mismo
+tiempo. El default se deriva de cpu_count // workers (workers viene de
+server_config), para que la suma de instancias concurrentes entre TODOS
+los procesos Uvicorn nunca exceda los cores físicos del VPS. Es
+sobreescribible manualmente vía .env si se necesita otro valor.
 """
 
 import os
 import re
+import threading
 from dataclasses import dataclass
 
 import pytesseract
@@ -52,10 +62,22 @@ class TesseractConfig:
     threshold: int = 0       # 0 = Otsu automático
     denoise: bool = True
     psm: int = 3
+    max_concurrent: int = 1
 
     @classmethod
     def from_env(cls) -> "TesseractConfig":
-        """Crea el provider desde variables de entorno y .env."""
+        """Crea el provider desde variables de entorno y .env.
+
+        max_concurrent por defecto = cpu_count // workers (mínimo 1), para
+        que la concurrencia total de Tesseract entre todos los procesos
+        Uvicorn no exceda los cores físicos disponibles.
+        """
+        from config.server import server_config
+
+        cpu_count = os.cpu_count() or 1
+        workers = max(1, getattr(server_config, "workers", 1))
+        concurrent_default = max(1, cpu_count // workers)
+
         cfg = cls(
             cmd=os.getenv("TESSERACT_CMD", "").strip(),
             lang=os.getenv("TESSERACT_LANG", "spa").strip(),
@@ -63,6 +85,7 @@ class TesseractConfig:
             threshold=int(os.getenv("TESSERACT_THRESHOLD", "0")),
             denoise=os.getenv("TESSERACT_DENOISE", "true").lower() == "true",
             psm=int(os.getenv("TESSERACT_PSM", "3")),
+            max_concurrent=int(os.getenv("TESSERACT_MAX_CONCURRENT", str(concurrent_default))),
         )
         # Auto-detectar ruta si no se especificó
         if not cfg.cmd or not os.path.exists(cfg.cmd):
@@ -73,11 +96,28 @@ class TesseractConfig:
         return cfg
 
 
+# ── Semáforo singleton a nivel de módulo ──
+# Compartido entre instancias de TesseractProvider dentro del mismo proceso
+# (mismo patrón que _gemini_client / _s3_client en los otros providers).
+_tesseract_semaphore: threading.Semaphore | None = None
+_tesseract_semaphore_size: int | None = None
+
+
+def _get_tesseract_semaphore(max_concurrent: int) -> threading.Semaphore:
+    """Devuelve el semáforo compartido, recreándolo solo si cambia el tamaño."""
+    global _tesseract_semaphore, _tesseract_semaphore_size
+    if _tesseract_semaphore is None or _tesseract_semaphore_size != max_concurrent:
+        _tesseract_semaphore = threading.Semaphore(max_concurrent)
+        _tesseract_semaphore_size = max_concurrent
+    return _tesseract_semaphore
+
+
 class TesseractProvider(OCRProvider):
     """OCR mediante Tesseract con preprocesamiento de imagen."""
 
     def __init__(self):
         self.config = TesseractConfig.from_env()
+        self._semaphore = _get_tesseract_semaphore(self.config.max_concurrent)
         if self.config.cmd and os.path.exists(self.config.cmd):
             pytesseract.pytesseract.tesseract_cmd = self.config.cmd
 
@@ -87,35 +127,47 @@ class TesseractProvider(OCRProvider):
         return "tesseract"
 
     def extraer_campos(self, ruta_imagen: str) -> OCRResult:
-        """Procesa la imagen con Tesseract OCR y retorna los campos extraidos."""
+        """Procesa la imagen con Tesseract OCR y retorna los campos extraidos.
+
+        Limitado por semáforo (TESSERACT_MAX_CONCURRENT) para no saturar
+        los cores del VPS cuando varias imágenes caen a fallback a la vez.
+        Incluye cache simple de preprocesamiento por hash de imagen + config.
+        """
         if not self.config.cmd or not os.path.exists(self.config.cmd):
             return OCRResult(texto_completo="", proveedor=self.nombre)
 
-        # 1. Abrir imagen
-        img = Image.open(ruta_imagen)
+        with self._semaphore:
+            import hashlib
 
-        # 2. Preprocesar
-        img = self._preprocesar(img)
+            img = Image.open(ruta_imagen)
 
-        # 3. OCR
-        config_str = f"--psm {self.config.psm}"
-        texto_completo = pytesseract.image_to_string(
-            img, lang=self.config.lang, config=config_str
-        )
+            # Cache simple: hash de la imagen + config
+            cache_key = hashlib.md5(img.tobytes()).hexdigest()
+            cache_key += f":{self.config.scale}:{self.config.threshold}:{self.config.denoise}"
 
-        # 4. Parsear campos
-        campos = self._parsear_campos(texto_completo)
+            if not hasattr(self, "_cache") or self._cache.get("key") != cache_key:
+                img_preprocesada = self._preprocesar(img)
+                self._cache = {"key": cache_key, "img": img_preprocesada}
+            else:
+                img_preprocesada = self._cache["img"]
 
-        return OCRResult(
-            cajero=campos.get("cajero"),
-            fecha=campos.get("fecha"),
-            hora=campos.get("hora"),
-            no_venta=campos.get("no_venta"),
-            monto=campos.get("monto"),
-            destinatario=campos.get("destinatario"),
-            texto_completo=texto_completo.strip(),
-            proveedor=self.nombre,
-        )
+            config_str = f"--psm {self.config.psm}"
+            texto_completo = pytesseract.image_to_string(
+                img_preprocesada, lang=self.config.lang, config=config_str
+            )
+
+            campos = self._parsear_campos(texto_completo)
+
+            return OCRResult(
+                cajero=campos.get("cajero"),
+                fecha=campos.get("fecha"),
+                hora=campos.get("hora"),
+                no_venta=campos.get("no_venta"),
+                monto=campos.get("monto"),
+                destinatario=campos.get("destinatario"),
+                texto_completo=texto_completo.strip(),
+                proveedor=self.nombre,
+            )
 
     def _preprocesar(self, img: Image.Image) -> Image.Image:
         """Preprocesa la imagen para mejorar la precisión de Tesseract."""
@@ -138,26 +190,6 @@ class TesseractProvider(OCRProvider):
         elif self.config.threshold < 255:
             img = img.point(lambda p: 255 if p > self.config.threshold else 0)
         return img
-
-    def extraer_campos(self, ruta_imagen: str) -> OCRResult:
-        """Procesa la imagen con Tesseract OCR y retorna los campos extraidos."""
-        import hashlib
-
-        img = Image.open(ruta_imagen)
-
-        # Cache simple: hash de la imagen + config
-        cache_key = hashlib.md5(img.tobytes()).hexdigest()
-        cache_key += f":{self.config.scale}:{self.config.threshold}:{self.config.denoise}"
-
-        if not hasattr(self, '_cache') or self._cache.get('key') != cache_key:
-            img_preprocesada = self._preprocesar(img)
-            self._cache = {'key': cache_key, 'img': img_preprocesada}
-        else:
-            img_preprocesada = self._cache['img']
-
-        texto_completo = pytesseract.image_to_string(
-            img_preprocesada, lang=self.config.lang, config=f"--psm {self.config.psm}"
-        )
 
     def _parsear_campos(self, texto: str) -> dict:
         """Extrae campos estructurados del texto OCR.

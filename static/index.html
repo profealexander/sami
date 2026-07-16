@@ -4,188 +4,111 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SAMI - Captura Comprobantes</title>
-    <link rel="manifest" href="/static/manifest.json">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body, html { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
-        
-        #cameraFeed { width: 100%; height: 100%; object-fit: cover; display: none; }
-        
-        #overlay {
-            position: absolute; top: 20px; left: 0; width: 100%; text-align: center;
-            color: white; font-size: 1.2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            pointer-events: none; display: none;
+        body, html { width: 100%; height: 100%; background: #1a1a2e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+        #app {
+            width: 100%; height: 100%; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; padding: 20px;
         }
-        
-        #flash {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: white; opacity: 0; pointer-events: none; transition: opacity 0.15s; display: none;
+
+        h1 { color: #fff; font-size: 2rem; margin-bottom: 8px; }
+        .subtitle { color: #aaa; font-size: 0.95rem; margin-bottom: 40px; text-align: center; }
+
+        .btn-group { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 280px; }
+
+        .btn {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 16px 20px; border: none; border-radius: 12px;
+            font-size: 1.1rem; font-weight: 600; cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
         }
-        
-        #statusBar {
-            position: absolute; bottom: 40px; left: 0; width: 100%; text-align: center;
-            color: #0f0; font-family: monospace; font-size: 0.9rem;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.9); pointer-events: none; display: none;
+        .btn:active { transform: scale(0.96); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-camera { background: #0f3460; color: #fff; }
+        .btn-file { background: #1a5276; color: #fff; }
+
+        .btn .icon { font-size: 1.4rem; }
+
+        #status {
+            margin-top: 24px; padding: 12px 20px; border-radius: 8px;
+            font-size: 0.9rem; text-align: center; max-width: 280px;
+            display: none;
         }
-        
-        /* Pantalla de inicio con botón */
-        #startScreen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: #1a1a2e; z-index: 10;
+        #status.ok { display: block; background: rgba(46,204,113,0.15); color: #2ecc71; }
+        #status.error { display: block; background: rgba(255,107,107,0.15); color: #ff6b6b; }
+        #status.loading { display: block; background: rgba(52,152,219,0.15); color: #3498db; }
+
+        #resultado {
+            margin-top: 16px; padding: 14px; border-radius: 8px;
+            background: rgba(255,255,255,0.05); color: #ccc;
+            font-size: 0.85rem; max-width: 280px; width: 100%;
+            display: none; line-height: 1.5;
         }
-        #startScreen h1 { color: #fff; font-size: 2rem; margin-bottom: 10px; }
-        #startScreen p { color: #aaa; margin-bottom: 30px; text-align: center; padding: 0 20px; }
-        #startBtn {
-            background: #0f3460; color: white; border: none; padding: 18px 40px;
-            font-size: 1.3rem; border-radius: 12px; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(15,52,96,0.5);
+        #resultado strong { color: #fff; }
+
+        #clienteId {
+            margin-top: 30px; color: #555; font-size: 0.75rem; font-family: monospace;
         }
-        #startBtn:active { transform: scale(0.95); }
-        #startBtn .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
-        
-        .btn-group { display: flex; flex-direction: column; gap: 12px; width: 240px; }
-        #startBtn, #fileBtn { width: 100%; background: #0f3460; color: white; border: none; padding: 18px 20px; font-size: 1.1rem; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(15,52,96,0.5); transition: transform 0.1s; }
-        #startBtn:active, #fileBtn:active { transform: scale(0.95); }
-        #startBtn .icon, #fileBtn .icon { font-size: 1.8rem; display: block; margin-bottom: 6px; }
-        #fileBtn { background: #1a5276; }
-        .status-msg { color: #2ecc71; font-size: 0.95rem; margin-top: 15px; padding: 0 20px; text-align: center; }
-        .status-msg.error { color: #ff6b6b; }
-        .error-msg { color: #ff6b6b; font-size: 0.9rem; margin-top: 15px; padding: 0 20px; text-align: center; }
     </style>
 </head>
 <body>
-    <!-- Pantalla de inicio -->
-    <div id="startScreen">
+    <div id="app">
         <h1>SAMI</h1>
-        <p>Captura tus comprobantes<br>con la cámara</p>
-        <button id="startBtn">
-            <span class="icon">📷</span>
-            Iniciar Cámara
-        </button>
-        <button id="fileBtn">
-            <span class="icon">📁</span>
-            Seleccionar Imagen
-        </button>
-        <div id="statusMsg" class="status-msg"></div>
-        <div id="errorMsg" class="error-msg"></div>
-    </div>
-    
-    <!-- Cámara -->
-    <video id="cameraFeed" autoplay playsinline></video>
+        <p class="subtitle">Captura tus comprobantes</p>
 
-    <!-- Input oculto para seleccionar archivo -->
+        <div class="btn-group">
+            <button id="btnCamera" class="btn btn-camera">
+                <span class="icon">📷</span> Sacar Foto
+            </button>
+            <button id="btnFile" class="btn btn-file">
+                <span class="icon">📁</span> Seleccionar de Galería
+            </button>
+        </div>
+
+        <div id="status"></div>
+        <div id="resultado"></div>
+        <div id="clienteId"></div>
+    </div>
+
+    <!-- Inputs ocultos: uno abre cámara, otro abre galería/archivos -->
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
     <input type="file" id="fileInput" accept="image/*" style="display:none">
-    <div id="overlay">Toca la pantalla para capturar</div>
-    <div id="statusBar">Listo</div>
-    <div id="flash"></div>
 
     <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/sw.js');
-        }
-
-        const video = document.getElementById('cameraFeed');
-        const flash = document.getElementById('flash');
-        const overlay = document.getElementById('overlay');
-        const statusBar = document.getElementById('statusBar');
-        const startScreen = document.getElementById('startScreen');
-        const startBtn = document.getElementById('startBtn');
-        const fileBtn = document.getElementById('fileBtn');
+        const btnCamera = document.getElementById('btnCamera');
+        const btnFile = document.getElementById('btnFile');
+        const cameraInput = document.getElementById('cameraInput');
         const fileInput = document.getElementById('fileInput');
-        const statusMsg = document.getElementById('statusMsg');
-        const errorMsg = document.getElementById('errorMsg');
-        
+        const status = document.getElementById('status');
+        const resultado = document.getElementById('resultado');
+        const clienteIdEl = document.getElementById('clienteId');
+
+        // ID del cliente (estable por sesión)
         const cliente_id = 'C_' + Math.floor(Math.random() * 10000);
-        let mediaStream = null;
+        clienteIdEl.textContent = 'ID: ' + cliente_id;
 
-        // Iniciar cámara SOLO después del click del usuario
-        startBtn.addEventListener('click', async () => {
-            startBtn.disabled = true;
-            startBtn.textContent = 'Solicitando cámara...';
-            errorMsg.textContent = '';
-            
-            try {
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-                    audio: false
-                });
-                
-                video.srcObject = mediaStream;
-                
-                // Ocultar pantalla de inicio, mostrar cámara
-                startScreen.style.display = 'none';
-                video.style.display = 'block';
-                overlay.style.display = 'block';
-                statusBar.style.display = 'block';
-                flash.style.display = 'block';
-                statusBar.textContent = 'Cámara activa';
-                startBtn.disabled = false;
-                startBtn.innerHTML = '<span class="icon">📷</span> Iniciar Cámara';
-                
-            } catch (err) {
-                console.error('Error cámara:', err);
-                errorMsg.textContent = 'Error: ' + err.message;
-                startBtn.disabled = false;
-                startBtn.innerHTML = '<span class="icon">📷</span> Reintentar';
-            }
+        // Botón cámara → abre la cámara del teléfono
+        btnCamera.addEventListener('click', () => {
+            cameraInput.value = '';
+            cameraInput.click();
         });
 
-        // Capturar al tocar el video
-        video.addEventListener('click', () => {
-            if (!video.videoWidth) return;
-            
-            flash.style.opacity = 1;
-            setTimeout(() => { flash.style.opacity = 0; }, 150);
-            overlay.textContent = 'Enviando...';
-            statusBar.textContent = 'Procesando captura...';
-
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            canvas.toBlob(blob => {
-                if (!blob) { overlay.textContent = 'Error al generar imagen'; statusBar.textContent = 'Error'; return; }
-                const formData = new FormData();
-                formData.append('imagen', blob, 'captura.jpg');
-                formData.append('cliente_id', cliente_id);
-
-                fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(r => r.json())
-                .then(data => {
-                    overlay.textContent = '✔ Enviado!\nToca para otra captura';
-                    statusBar.textContent = 'OCR: ' + (data.datos_extraidos?.cajero || 'OK');
-                    console.log('Respuesta:', data);
-                })
-                .catch(err => {
-                    overlay.textContent = 'Error de red\nReintenta';
-                    statusBar.textContent = 'Error';
-                    console.error(err);
-                });
-            }, 'image/jpeg', 0.8);
-        });
-
-        // ── Seleccionar imagen desde archivo ──
-        fileBtn.addEventListener('click', () => {
-            if (mediaStream) {
-                statusMsg.textContent = '';
-                errorMsg.textContent = '';
-            }
+        // Botón galería → abre selector de archivos
+        btnFile.addEventListener('click', () => {
+            fileInput.value = '';
             fileInput.click();
         });
 
-        fileInput.addEventListener('change', (e) => {
+        // Cuando se selecciona una imagen (de cámara o galería)
+        function manejarImagen(e) {
             const file = e.target.files[0];
             if (!file) return;
 
-            statusMsg.className = 'status-msg';
-            statusMsg.textContent = 'Subiendo...';
-            errorMsg.textContent = '';
+            setStatus('loading', 'Subiendo comprobante...');
+            resultado.style.display = 'none';
 
             const formData = new FormData();
             formData.append('imagen', file);
@@ -196,32 +119,36 @@
                 body: formData
             })
             .then(r => {
-                if (!r.ok) return r.json().then(e => { throw new Error(e.detail || 'Error del servidor'); });
+                if (!r.ok) return r.json().then(err => { throw new Error(err.detail || 'Error del servidor'); });
                 return r.json();
             })
             .then(data => {
-                statusMsg.className = 'status-msg';
-                statusMsg.textContent = '✔ Enviado!';
-                errorMsg.textContent = data.datos_extraidos?.cajero ? 'Cajero: ' + data.datos_extraidos.cajero : 'Comprobante procesado';
-                console.log('Respuesta:', data);
+                const d = data.datos_extraidos || {};
+                let html = '';
+                if (d.cajero) html += '<strong>Cajero:</strong> ' + d.cajero + '<br>';
+                if (d.fecha) html += '<strong>Fecha:</strong> ' + d.fecha + '<br>';
+                if (d.hora) html += '<strong>Hora:</strong> ' + d.hora + '<br>';
+                if (d.monto) html += '<strong>Monto:</strong> ' + d.monto + '<br>';
+                if (d.venta_no) html += '<strong>Venta #:</strong> ' + d.venta_no + '<br>';
+                if (d.destinatario) html += '<strong>Destinatario:</strong> ' + d.destinatario + '<br>';
+                if (!html) html = 'Comprobante procesado';
+
+                resultado.innerHTML = html;
+                resultado.style.display = 'block';
+                setStatus('ok', 'Comprobante procesado correctamente');
             })
             .catch(err => {
-                statusMsg.className = 'status-msg error';
-                statusMsg.textContent = '✖ Error';
-                errorMsg.textContent = err.message;
-                console.error(err);
-            })
-            .finally(() => {
-                fileInput.value = '';
+                setStatus('error', err.message);
             });
-        });
+        }
 
-        // Liberar cámara al salir
-        window.addEventListener('beforeunload', () => {
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-            }
-        });
+        cameraInput.addEventListener('change', manejarImagen);
+        fileInput.addEventListener('change', manejarImagen);
+
+        function setStatus(tipo, msg) {
+            status.className = tipo;
+            status.textContent = msg;
+        }
     </script>
 </body>
 </html>

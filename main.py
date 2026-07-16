@@ -6,6 +6,8 @@ Delega la logica de negocio a service.py.
 """
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request, Header
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -29,7 +31,23 @@ from utils.rate_limiter import RateLimiter
 logger = get_logger("api")
 
 # ── Rate limiter global ──
-_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)
+# NOTA: usa server_config.rate_limit (antes hardcodeado a 10/60 e ignoraba
+# la variable RATE_LIMIT del .env). Sigue siendo in-memory por proceso:
+# con WORKERS=1 esto es correcto; si algun dia se sube WORKERS>1, cada
+# proceso tendria su propio contador y el limite efectivo se multiplicaria
+# por el numero de workers — revisar si eso llega a pasar.
+_rate_limiter = RateLimiter(max_requests=server_config.rate_limit, window_seconds=60)
+
+# ── Executor dedicado para trabajo I/O-bound (llamadas a OCR.space, etc.) ──
+# Tamano derivado de IO_POOL_SIZE (config/server.py), que a su vez se
+# calcula a partir de os.cpu_count() y es sobreescribible por .env.
+# Reemplaza al executor por defecto de asyncio (run_in_executor(None, ...))
+# para tener control explicito sobre cuantos uploads se procesan en
+# paralelo dentro de este proceso.
+_io_executor = ThreadPoolExecutor(
+    max_workers=server_config.io_pool_size,
+    thread_name_prefix="upload",
+)
 
 # ── Configurar validador de uploads ──
 configure_validator(
@@ -71,7 +89,17 @@ async def startup_event():
     from database.engine import engine
     from database.models import Base
     Base.metadata.create_all(bind=engine)
-    logger.info("Base de datos inicializada correctamente")
+    logger.info(
+        "Base de datos inicializada correctamente | workers=%d | io_pool_size=%d",
+        server_config.workers, server_config.io_pool_size,
+    )
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cierra el executor de I/O de forma ordenada al apagar el servidor."""
+    _io_executor.shutdown(wait=True)
+    logger.info("Executor de I/O cerrado correctamente")
 
 
 @app.get("/health", description="Verifica que el servidor esta vivo y funcionando correctamente")
@@ -85,7 +113,13 @@ def health_check():
     except Exception:
         app_version = "unknown"
 
-    status = {"status": "ok", "version": app_version, "entorno": server_config.env}
+    status = {
+        "status": "ok",
+        "version": app_version,
+        "entorno": server_config.env,
+        "workers": server_config.workers,
+        "io_pool_size": server_config.io_pool_size,
+    }
     try:
         db = next(get_db())
         db.execute(text("SELECT 1"))
@@ -121,6 +155,9 @@ async def subir_comprobante(
     a Tesseract como fallback local.
     """
     # Rate limiting
+    # NOTA: por IP. Si varios cajeros comparten la misma red/IP de tienda,
+    # este limite los agrupa como un solo cliente — considerar migrar a
+    # limitar por cliente_id si eso empieza a causar falsos positivos.
     client_ip = request.client.host if request and request.client else "unknown"
     if not _rate_limiter.permitir(client_ip):
         raise HTTPException(status_code=429, detail="Rate limit excedido. Intente mas tarde.")
@@ -176,8 +213,8 @@ async def subir_comprobante(
         Path(tmp.name).rename(ruta_final)
         ruta_imagen = str(ruta_final)
 
-        respuesta = await asyncio.get_event_loop().run_in_executor(
-            None, service.procesar_y_guardar_comprobante, db, ruta_imagen, cliente_id
+        respuesta = await asyncio.get_running_loop().run_in_executor(
+            _io_executor, service.procesar_y_guardar_comprobante, db, ruta_imagen, cliente_id
         )
 
         registro = respuesta.registro

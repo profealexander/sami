@@ -10,5 +10,5 @@ RUN chown -R sami:sami /app
 USER sami
 EXPOSE 8000
 ENV ENV=production
-HEALTHCHECK --interval=30s --timeout=5s CMD curl -f http://localhost:8000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 CMD ["uv", "run", "python", "run.py"]

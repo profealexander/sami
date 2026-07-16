@@ -10,6 +10,18 @@ Proveedores disponibles (según OCR_PROVIDER en .env):
     ocrspace  → OCR.space API (online) con fallback a Tesseract
     gemini    → Google Gemini API con fallback a Tesseract
     tesseract → solo Tesseract local (sin internet)
+
+NOTA SOBRE EL SINGLETON:
+get_ocr_engine() antes construía un FallbackProvider nuevo en cada
+llamada, lo que reiniciaba el CircuitBreaker interno en cada request y
+hacía que el umbral de "5 fallos consecutivos" documentado en
+PROVEEDORES_OCR.md nunca se alcanzara en la práctica. Ahora la instancia
+se cachea a nivel de módulo, así el conteo de fallos persiste mientras
+el proceso viva. Esto asume un solo motor OCR por proceso Uvicorn (así
+ya funciona hoy) — si en el futuro se corre con WORKERS>1, cada proceso
+tiene su propio singleton y por lo tanto su propio circuit breaker
+independiente, lo cual es aceptable (cada proceso protege su propia
+tasa de llamadas al proveedor primario).
 """
 
 import os
@@ -21,6 +33,9 @@ logger = get_logger("ocr.factory")
 
 # Registro dinámico de proveedores
 _REGISTRO_OCR: dict[str, type[OCRProvider]] = {}
+
+# Singleton del motor OCR activo (incluye el circuit breaker si aplica)
+_engine_instance: OCRProvider | None = None
 
 
 def registrar_ocr(nombre: str, clase: type[OCRProvider]):
@@ -37,7 +52,17 @@ def _validar_configuracion(provider: str):
 
 
 def get_ocr_engine() -> OCRProvider:
-    """Devuelve el motor OCR según la configuración en .env."""
+    """Devuelve el motor OCR (singleton) según la configuración en .env.
+
+    La primera llamada construye la instancia (y su circuit breaker, si
+    aplica); las siguientes reutilizan la misma instancia, para que el
+    estado interno (contador de fallos, timestamps de bloqueo) persista
+    correctamente entre requests.
+    """
+    global _engine_instance
+    if _engine_instance is not None:
+        return _engine_instance
+
     from ocr.tesseract_provider import TesseractProvider
     from ocr.fallback import FallbackProvider
 
@@ -53,7 +78,9 @@ def get_ocr_engine() -> OCRProvider:
     _validar_configuracion(provider)
 
     if provider == "tesseract":
-        return TesseractProvider()
+        _engine_instance = TesseractProvider()
+        logger.info("Motor OCR inicializado (singleton): tesseract")
+        return _engine_instance
 
     primary_cls = _REGISTRO_OCR.get(provider)
     if not primary_cls:
@@ -62,7 +89,9 @@ def get_ocr_engine() -> OCRProvider:
             f"Valores disponibles: {', '.join(_REGISTRO_OCR.keys())}"
         )
 
-    return FallbackProvider(
+    _engine_instance = FallbackProvider(
         primary=primary_cls(),
         fallback=TesseractProvider(),
     )
+    logger.info("Motor OCR inicializado (singleton): %s+tesseract", provider)
+    return _engine_instance
