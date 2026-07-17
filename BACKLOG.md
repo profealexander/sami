@@ -41,7 +41,7 @@ Proximos pasos y funcionalidades pendientes.
 - ✅ **M12**: SQLite con `pool_pre_ping`
 - ✅ **M13**: Cache de preprocesamiento OCR
 - ✅ **M14**: Compresión de imagen antes de APIs (>1MB)
-- ✅ **M15**: Upload con lectura completa (reemplazó streaming 8KB)
+- ✅ **M15**: Upload optimizado
 
 ### Calidad (15 items)
 - ✅ **C9**: `monto` "0" ya no se excluye
