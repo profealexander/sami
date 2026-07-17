@@ -13,13 +13,13 @@ Así models.py puede importar Base sin imports circulares.
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from config.logger import get_logger
-from config.server import server_config
+from config import settings
 from database.backends.sqlite import create_sqlite_engine
 from database.backends.postgres import create_postgres_engine
 
 logger = get_logger("database.engine")
 
-DATABASE_URL = server_config.database_url
+DATABASE_URL = settings.database_url
 
 
 # ── Fábrica de engines ──
@@ -34,8 +34,8 @@ def create_engine_from_url() -> object:
         return create_sqlite_engine(url)
 
     elif url.startswith("postgresql") or url.startswith("postgres"):
-        logger.info("Backend: PostgreSQL — pool_size=%s", server_config.db_pool_size)
-        return create_postgres_engine(url, pool_size=server_config.db_pool_size)
+        logger.info("Backend: PostgreSQL — pool_size=%s", settings.db_pool_size)
+        return create_postgres_engine(url, pool_size=settings.db_pool_size)
 
     else:
         raise ValueError(

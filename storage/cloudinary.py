@@ -8,7 +8,7 @@ import tempfile
 
 from config.logger import get_logger
 from storage.base import StorageProvider
-from config.server import server_config
+from config import settings
 from utils.exceptions import StorageError
 
 logger = get_logger("storage.cloudinary")
@@ -28,7 +28,7 @@ class CloudinaryStorageProvider(StorageProvider):
         import cloudinary.uploader
 
         try:
-            cloudinary.config(cloudinary_url=server_config.cloudinary_url)
+            cloudinary.config(cloudinary_url=settings.cloudinary_url)
             resultado = cloudinary.uploader.upload(
                 imagen_bytes,
                 public_id=f"comprobantes/{nombre_archivo.split('.')[0]}",

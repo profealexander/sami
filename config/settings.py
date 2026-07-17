@@ -1,66 +1,120 @@
 """
-settings.py — Configuración general de SAMI.
+settings.py — Configuracion unificada con pydantic-settings.
 
-Solo contiene lo COMPARTIDO entre todos los módulos.
-Cada proveedor OCR tiene su propia configuración auto-contenida
-en su respectivo archivo (ocr/tesseract_provider.py, etc.).
+Sigue la recomendacion oficial de FastAPI:
+https://fastapi.tiangolo.com/advanced/settings/#pydantic-settings
 
-Jerarquía de resolución:
-1. Variable de entorno del sistema (Linux/Docker)
-2. Archivo .env raíz
-3. Archivo ocr/.env
+Prioridad de variables (de mayor a menor):
+1. Variables de entorno del sistema
+2. .env raiz
+3. ocr/.env (API keys OCR)
 4. Valores por defecto
+
+Uso:
+    from config import settings
+    settings.port        # 7000 (desde .env)
+    settings.database_url
 """
 
 import os
-from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
-from dotenv import load_dotenv
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from config.common import PROJECT_ROOT
-
-# Cargar configuración OCR antes de que Settings.load() lea las variables.
-# override=False: vars del sistema y del .env raíz tienen prioridad.
-load_dotenv(PROJECT_ROOT / "ocr" / ".env", override=False)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
-@dataclass
-class Settings:
-    """Configuración general del servidor SAMI."""
+class Settings(BaseSettings):
+    # ── Servidor ──
+    host: Optional[str] = None
+    port: int = 8000
+    env: str = "development"
+    workers: Optional[int] = None
+    io_pool_size: Optional[int] = None
+    reload: Optional[bool] = None
+    log_level: Optional[str] = None
+    cors_origins: str = "*"
 
-    # ── Archivos ──
+    # ── Base de datos ──
+    database_url: str = "sqlite:///./comprobantes.db"
+    db_pool_size: int = 10
+
+    # ── Almacenamiento ──
+    storage_backend: str = "local"
+    s3_bucket: str = ""
+    s3_region: str = ""
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+    s3_endpoint: str = ""
+    cloudinary_url: str = ""
+
+    # ── Uploads ──
     upload_dir: str = "uploads"
-
-    # ── Selector de proveedor OCR ──
-    # Valores: ocrspace, gemini, tesseract
-    ocr_provider: str = "ocrspace"
-
-    # ── Validación de uploads ──
     max_upload_size_mb: int = 10
     allowed_extensions: str = ".jpg,.jpeg,.png,.webp"
+
+    # ── OCR ──
+    ocr_provider: str = "ocrspace"
+
+    # ── Rate limiting ──
+    rate_limit: int = 100
 
     # ── Logging ──
     log_file: str = ""
 
-    @classmethod
-    def load(cls) -> "Settings":
-        """Carga Settings desde variables de entorno y .env."""
-        return cls(
-            upload_dir=os.getenv("UPLOAD_DIR", "uploads").strip(),
-            ocr_provider=os.getenv("OCR_PROVIDER", "ocrspace").strip().lower(),
-            max_upload_size_mb=int(os.getenv("MAX_UPLOAD_SIZE_MB", "10")),
-            allowed_extensions=os.getenv(
-                "ALLOWED_EXTENSIONS", ".jpg,.jpeg,.png,.webp"
-            ).strip(),
-            log_file=os.getenv("LOG_FILE", "").strip(),
-        )
+    model_config = SettingsConfigDict(
+        env_file=[".env", "ocr/.env"],
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return ["*"] if self.cors_origins == "*" else [o.strip() for o in self.cors_origins.split(",")]
+
+    @model_validator(mode="after")
+    def _smart_defaults(self):
+        cpu = os.cpu_count() or 1
+        prod = self.env == "production"
+
+        if self.host is None:
+            self.host = "0.0.0.0" if prod else "127.0.0.1"
+        if self.workers is None:
+            self.workers = cpu if prod else 1
+        if self.io_pool_size is None:
+            self.io_pool_size = min(32, cpu * 8)
+        if self.reload is None:
+            self.reload = not prod
+        if self.log_level is None:
+            self.log_level = "warning" if prod else "info"
+
+        if self.reload and self.workers > 1:
+            raise ValueError(
+                "Configuracion invalida: RELOAD=true es incompatible con WORKERS>1"
+                f" (WORKERS={self.workers}). Uvicorn no soporta reload con multiples "
+                "workers. Setea RELOAD=false o WORKERS=1 en tu .env."
+            )
+        return self
+
+    @property
+    def is_production(self) -> bool:
+        return self.env == "production"
+
+    @property
+    def is_development(self) -> bool:
+        return self.env == "development"
 
     @property
     def upload_dir_abs(self) -> Path:
-        """Ruta absoluta del directorio de uploads."""
         return PROJECT_ROOT / self.upload_dir
 
 
-# ── Instancia global única ──
-settings = Settings.load()
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()

@@ -7,7 +7,7 @@ Uso:
     url = backend.guardar(imagen_bytes, "jpg")
 """
 
-from config.server import server_config
+from config import settings
 from storage.base import StorageProvider
 from config.logger import get_logger
 
@@ -25,12 +25,12 @@ def registrar_storage(nombre: str, clase: type[StorageProvider]):
 def _validar_configuracion(backend: str):
     """Valida que las credenciales necesarias estén configuradas."""
     if backend == "s3":
-        if not server_config.s3_access_key:
+        if not settings.s3_access_key:
             logger.warning("S3_ACCESS_KEY no configurada — S3 no funcionará")
-        if not server_config.s3_bucket:
+        if not settings.s3_bucket:
             logger.warning("S3_BUCKET no configurada — S3 no funcionará")
     elif backend == "cloudinary":
-        if not server_config.cloudinary_url:
+        if not settings.cloudinary_url:
             logger.warning("CLOUDINARY_URL no configurada — Cloudinary no funcionará")
 
 
@@ -46,7 +46,7 @@ def get_storage_backend() -> StorageProvider:
         registrar_storage("s3", S3StorageProvider)
         registrar_storage("cloudinary", CloudinaryStorageProvider)
 
-    backend = server_config.storage_backend.lower()
+    backend = settings.storage_backend.lower()
     _validar_configuracion(backend)
 
     cls = _REGISTRO_STORAGE.get(backend)

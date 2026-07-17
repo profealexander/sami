@@ -8,7 +8,7 @@ import tempfile
 
 from config.logger import get_logger
 from storage.base import StorageProvider
-from config.server import server_config
+from config import settings
 from utils.exceptions import StorageError
 
 logger = get_logger("storage.s3")
@@ -50,7 +50,7 @@ class S3StorageProvider(StorageProvider):
 
     def guardar(self, imagen_bytes: bytes, nombre_archivo: str) -> str:
         """Sube la imagen a S3 y retorna la URL publica o key del objeto."""
-        cfg = server_config
+        cfg = settings
         try:
             s3 = _obtener_cliente_s3(cfg)
             key = f"comprobantes/{nombre_archivo}"

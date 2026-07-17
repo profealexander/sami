@@ -57,10 +57,10 @@ class TesseractConfig:
         que la concurrencia total de Tesseract entre todos los procesos
         Uvicorn no exceda los cores físicos disponibles.
         """
-        from config.server import server_config
+        from config import settings
 
         cpu_count = os.cpu_count() or 1
-        workers = max(1, getattr(server_config, "workers", 1))
+        workers = max(1, getattr(settings, "workers", 1))
         concurrent_default = max(1, cpu_count // workers)
 
         cfg = cls(

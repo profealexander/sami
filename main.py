@@ -25,8 +25,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 import service
 from config.logger import get_logger
-from config.server import server_config
-from config.settings import settings
+from config import settings
 from utils.exceptions import UploadValidationError, OCRError, StorageError
 from utils.upload_validator import (
     configure as configure_validator,
@@ -45,7 +44,7 @@ logger = get_logger("api")
 # con WORKERS=1 esto es correcto; si algun dia se sube WORKERS>1, cada
 # proceso tendria su propio contador y el limite efectivo se multiplicaria
 # por el numero de workers — revisar si eso llega a pasar.
-_rate_limiter = RateLimiter(max_requests=server_config.rate_limit, window_seconds=60)
+_rate_limiter = RateLimiter(max_requests=settings.rate_limit, window_seconds=60)
 
 # ── Executor dedicado para trabajo I/O-bound (llamadas a OCR.space, etc.) ──
 # Tamano derivado de IO_POOL_SIZE (config/server.py), que a su vez se
@@ -54,7 +53,7 @@ _rate_limiter = RateLimiter(max_requests=server_config.rate_limit, window_second
 # para tener control explicito sobre cuantos uploads se procesan en
 # paralelo dentro de este proceso.
 _io_executor = ThreadPoolExecutor(
-    max_workers=server_config.io_pool_size,
+    max_workers=settings.io_pool_size,
     thread_name_prefix="upload",
 )
 
@@ -67,14 +66,14 @@ configure_validator(
 app = FastAPI(title="SAMI - Servidor de Comprobantes OCR")
 
 # Validar CORS en producción
-if server_config.env == "production" and server_config.cors_origins == ["*"]:
+if settings.env == "production" and settings.cors_origins_list == ["*"]:
     logger.warning(
         "CORS * configurado en producción — riesgo de seguridad. Configurar CORS_ORIGINS explícito."
     )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=server_config.cors_origins,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -105,8 +104,8 @@ async def startup_event():
     Base.metadata.create_all(bind=engine)
     logger.info(
         "Base de datos inicializada correctamente | workers=%d | io_pool_size=%d",
-        server_config.workers,
-        server_config.io_pool_size,
+        settings.workers,
+        settings.io_pool_size,
     )
 
 
@@ -134,9 +133,9 @@ def health_check():
     status = {
         "status": "ok",
         "version": app_version,
-        "entorno": server_config.env,
-        "workers": server_config.workers,
-        "io_pool_size": server_config.io_pool_size,
+        "entorno": settings.env,
+        "workers": settings.workers,
+        "io_pool_size": settings.io_pool_size,
     }
     try:
         db = next(get_db())
@@ -193,7 +192,7 @@ async def subir_comprobante(
         )
 
     # Autenticación (solo en producción)
-    if server_config.env == "production" and not validar_api_key(x_api_key):
+    if settings.env == "production" and not validar_api_key(x_api_key):
         raise HTTPException(status_code=401, detail="API key inválida")
 
     cliente_id = cliente_id.strip()

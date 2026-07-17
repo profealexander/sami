@@ -26,7 +26,7 @@ tasa de llamadas al proveedor primario).
 
 import os
 
-from config.settings import settings
+from config import settings
 from ocr.base import OCRProvider
 from config.logger import get_logger
 

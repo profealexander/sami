@@ -8,7 +8,7 @@ Configuración en .env:
 import os
 
 from config.logger import get_logger
-from config.settings import settings, PROJECT_ROOT
+from config import settings, PROJECT_ROOT
 from storage.base import StorageProvider
 
 logger = get_logger("storage.local")

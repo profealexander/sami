@@ -1,11 +1,9 @@
 """
-common.py — Constantes compartidas de configuración.
+common.py — Eliminado.
+
+PROJECT_ROOT se movio a config/__init__.py.
+load_dotenv() ya no es necesario — pydantic-settings lo maneja automaticamente.
+
+Uso:
+    from config import PROJECT_ROOT
 """
-
-from pathlib import Path
-from dotenv import load_dotenv
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
-# Cargar .env una sola vez, antes de que cualquier módulo lea os.getenv()
-load_dotenv(PROJECT_ROOT / ".env", override=False)
