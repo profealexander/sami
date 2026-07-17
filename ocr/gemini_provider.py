@@ -151,7 +151,8 @@ class GeminiProvider(OCRProvider):
             transfiere=datos.get("transfiere") or datos.get("cajero"),
             no_comprobante=datos.get("no_comprobante") or datos.get("no_venta"),
             monto=datos.get("monto"),
-            texto_completo=datos.get("texto_completo", texto_respuesta),
+            destinatario=datos.get("destinatario"),
+            texto_ocr_crudo=datos.get("texto_completo", texto_respuesta),
             proveedor=self.nombre,
         )
 

@@ -122,7 +122,7 @@ class TesseractProvider(OCRProvider):
         Incluye cache simple de preprocesamiento por hash de imagen + config.
         """
         if not self.config.cmd or not os.path.exists(self.config.cmd):
-            return OCRResult(texto_completo="", proveedor=self.nombre)
+            return OCRResult(proveedor=self.nombre)
 
         with self._semaphore:
             import hashlib
@@ -146,15 +146,9 @@ class TesseractProvider(OCRProvider):
                 img_preprocesada, lang=self.config.lang, config=config_str
             )
 
-        campos = parsear_campos(texto_completo)
-
-        return OCRResult(
-            transfiere=campos.get("transfiere"),
-            no_comprobante=campos.get("no_comprobante"),
-            monto=campos.get("monto"),
-            texto_completo=texto_completo.strip(),
-            proveedor=self.nombre,
-        )
+        resultado = parsear_campos(texto_completo)
+        resultado.proveedor = self.nombre
+        return resultado
 
     def _preprocesar(self, img: Image.Image) -> Image.Image:
         """Preprocesa la imagen para mejorar la precisión de Tesseract."""

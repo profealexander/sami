@@ -4,6 +4,9 @@
 # Los grupos de captura entre parentesis () son los valores a extraer.
 
 [patrones]
+etiqueta_no_comprobante = [
+    'N\W{0,2}\s*de\s+(?:comprobante|venta|ticket)',
+]
 transfiere = [
     '^De\s+(.+)$',
     '(?:REMITENTE|ORDENANTE|TRANSFIERE|EMISOR)\s*[\:\-]?\s*(.+)',

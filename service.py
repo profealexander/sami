@@ -5,10 +5,7 @@ Orquesta: recibe imagen → guarda (via storage provider) → OCR (via ocr engin
 NO contiene logica directa de OCR ni de almacenamiento.
 """
 
-import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
-
 
 from sqlalchemy.orm import Session
 
@@ -32,14 +29,6 @@ class ComprobanteResponse:
     ocr_exitoso: bool
     proveedor_ocr: str | None
 
-
-def guardar_imagen_fisica(imagen_bytes: bytes, extension: str) -> str:
-    """Guarda imagen en disco segun backend configurado (local/s3/cloudinary) y retorna ruta."""
-    nombre_archivo = f"{uuid.uuid4().hex}{extension}"
-    backend = get_storage_backend()
-    ruta = backend.guardar(imagen_bytes, nombre_archivo)
-    logger.info("Imagen guardada: %s (backend=%s)", ruta, backend.nombre)
-    return ruta
 
 
 def procesar_y_guardar_comprobante(
@@ -87,26 +76,16 @@ def procesar_y_guardar_comprobante(
     finally:
         _limpiar_temporal(ruta_absoluta, ruta_imagen, backend)
 
-    # ── Valores extraídos ──
-    transfiere = resultado.transfiere if resultado and resultado.transfiere else None
-    no_comprobante = (
-        resultado.no_comprobante if resultado and resultado.no_comprobante else None
-    )
-    monto = resultado.monto if resultado and resultado.monto else None
-    texto_ocr_crudo = (
-        resultado.texto_completo.strip()
-        if resultado and resultado.texto_completo.strip()
-        else None
-    )
+    # ── Extraer campos del OCR (None si el OCR falló por completo) ──
+    if resultado is not None:
+        data_orm = resultado.model_dump(exclude={"proveedor"}, exclude_none=True)
+    else:
+        data_orm = {}
 
-    # ── Guardar en BD ──
+    # ── Guardar en BD (model_dump propaga automáticamente los campos comunes) ──
     nuevo_comprobante = Comprobante(
-        transfiere=transfiere,
-        no_comprobante=no_comprobante,
-        monto=monto,
-        texto_ocr_crudo=texto_ocr_crudo,
+        **data_orm,
         cliente_id=cliente_id,
-        fecha_envio=datetime.now(timezone.utc),
         ruta_imagen=ruta_imagen,
     )
 
@@ -114,22 +93,23 @@ def procesar_y_guardar_comprobante(
     db.commit()
     db.refresh(nuevo_comprobante)
 
+    tiene_campos = any([data_orm.get(k) for k in ("transfiere", "monto", "no_comprobante")])
     logger.info(
         "Comprobante #%s registrado | cliente=%s | OCR=%s | transfiere=%s | no_comprobante=%s",
         nuevo_comprobante.id,
         cliente_id,
         engine.nombre,
-        transfiere or "N/A",
-        no_comprobante or "N/A",
+        data_orm.get("transfiere", "N/A"),
+        data_orm.get("no_comprobante", "N/A"),
     )
 
     return ComprobanteResponse(
         registro=nuevo_comprobante,
-        transfiere=transfiere,
-        no_comprobante=no_comprobante,
-        monto=monto,
-        ocr_exitoso=resultado is not None,
-        proveedor_ocr=engine.nombre if resultado else None,
+        transfiere=data_orm.get("transfiere"),
+        no_comprobante=data_orm.get("no_comprobante"),
+        monto=data_orm.get("monto"),
+        ocr_exitoso=resultado is not None and tiene_campos,
+        proveedor_ocr=engine.nombre if resultado and tiene_campos else None,
     )
 
 

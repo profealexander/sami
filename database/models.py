@@ -21,6 +21,7 @@ class Comprobante(Base):
     transfiere = Column(String, nullable=True)
     no_comprobante = Column(String, nullable=True)
     monto = Column(String, nullable=True)
+    destinatario = Column(String, nullable=True)
     texto_ocr_crudo = Column(Text, nullable=True)
 
     cliente_id = Column(String, index=True)

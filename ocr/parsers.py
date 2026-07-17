@@ -2,13 +2,15 @@
 parsers.py — Parser unico de texto OCR.
 
 Carga los patrones desde ocr/patrones_ocr.toml.
-Extrae solo: transfiere, monto, no_comprobante.
-El texto completo del OCR se propaga sin parsear para guardarlo.
+Extrae: transfiere, monto, no_comprobante, destinatario.
+Retorna un OCRResult listo para usar con model_dump().
 """
 
 import re
 import tomllib
 from pathlib import Path
+
+from ocr.base import OCRResult
 
 _CONFIG_PATH = Path(__file__).resolve().parent / "patrones_ocr.toml"
 
@@ -20,13 +22,8 @@ MESES_FALLBACK = _cfg["meses_fallback"]
 PATRONES = _cfg["patrones"]
 
 RE_TRANSFIERE = re.compile(PATRONES["transfiere"][0], re.IGNORECASE)
-# RE_FECHA = re.compile(PATRONES["fecha_numerica"][0])       # Disponible para uso futuro
-# RE_HORA = re.compile(PATRONES["hora"][0], re.IGNORECASE)  # Disponible para uso futuro
 RE_COMPROBANTE = re.compile(PATRONES["no_comprobante"][0], re.IGNORECASE)
 RE_MONTO = re.compile(PATRONES["monto"][0], re.IGNORECASE)
-# RE_DESTINATARIO = re.compile(
-#     PATRONES["destinatario"][1], re.IGNORECASE
-# )  # Disponible para uso futuro
 
 _regex_cache = {}
 
@@ -46,39 +43,45 @@ def _match_simple(linea, regex_list):
 
 
 def parsear_campos(texto):
-    """Parsea texto OCR y extrae campos estructurados.
+    """Parsea texto OCR y retorna un OCRResult con los campos extraidos.
 
     Args:
         texto: Texto crudo extraido por OCR
 
     Returns:
-        Dict con transfiere, monto, no_comprobante, texto_completo
+        OCRResult con los campos poblados (None si no se encontraron)
     """
-    resultado = {
-        "transfiere": None,
-        "monto": None,
-        "no_comprobante": None,
-        "texto_completo": texto.strip(),
-    }
+    result = OCRResult(texto_ocr_crudo=texto.strip() or None)
+    esperando_no_comprobante = False
 
     for linea in texto.split("\n"):
         linea = linea.strip()
         if not linea:
             continue
 
-        if not resultado["transfiere"]:
+        if not result.transfiere:
             m = _match_simple(linea, _compilar("transfiere"))
             if m:
-                resultado["transfiere"] = m.group(1).strip()
+                result.transfiere = m.group(1).strip()
 
-        if not resultado["monto"]:
+        if not result.monto:
             m = _match_simple(linea, _compilar("monto"))
             if m:
-                resultado["monto"] = m.group(1).replace(",", "")
+                result.monto = m.group(1).replace(",", "")
 
-        if not resultado["no_comprobante"]:
+        if not result.no_comprobante:
             m = _match_simple(linea, _compilar("no_comprobante"))
             if m:
-                resultado["no_comprobante"] = m.group(1).strip()
+                result.no_comprobante = m.group(1).strip()
+            elif esperando_no_comprobante and re.match(r"^\d+$", linea):
+                result.no_comprobante = linea
+                esperando_no_comprobante = False
+            elif _match_simple(linea, _compilar("etiqueta_no_comprobante")):
+                esperando_no_comprobante = True
 
-    return resultado
+        if not result.destinatario:
+            m = _match_simple(linea, _compilar("destinatario"))
+            if m:
+                result.destinatario = m.group(1).strip()
+
+    return result
