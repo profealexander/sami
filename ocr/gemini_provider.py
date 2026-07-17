@@ -153,7 +153,7 @@ class GeminiProvider(OCRProvider):
             monto=datos.get("monto"),
             destinatario=datos.get("destinatario"),
             texto_ocr_crudo=datos.get("texto_completo", texto_respuesta),
-            proveedor=self.nombre,
+            ocr=self.nombre,
         )
 
     def _parsear_json(self, texto: str) -> dict:

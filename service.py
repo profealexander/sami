@@ -27,7 +27,7 @@ class ComprobanteResponse:
     no_comprobante: str | None
     monto: str | None
     ocr_exitoso: bool
-    proveedor_ocr: str | None
+    ocr: str | None
 
 
 
@@ -78,7 +78,7 @@ def procesar_y_guardar_comprobante(
 
     # ── Extraer campos del OCR (None si el OCR falló por completo) ──
     if resultado is not None:
-        data_orm = resultado.model_dump(exclude={"proveedor"}, exclude_none=True)
+        data_orm = resultado.model_dump(exclude_none=True)
     else:
         data_orm = {}
 
@@ -109,7 +109,7 @@ def procesar_y_guardar_comprobante(
         no_comprobante=data_orm.get("no_comprobante"),
         monto=data_orm.get("monto"),
         ocr_exitoso=resultado is not None and tiene_campos,
-        proveedor_ocr=engine.nombre if resultado and tiene_campos else None,
+        ocr=resultado.ocr if resultado and tiene_campos else None,
     )
 
 

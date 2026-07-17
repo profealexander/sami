@@ -21,7 +21,7 @@ class OCRResult(BaseModel):
     monto: str | None = None
     destinatario: str | None = None
     texto_ocr_crudo: str | None = None
-    proveedor: str = ""
+    ocr: str = ""
 
 
 class OCRProvider(ABC):

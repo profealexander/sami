@@ -23,6 +23,7 @@ class Comprobante(Base):
     monto = Column(String, nullable=True)
     destinatario = Column(String, nullable=True)
     texto_ocr_crudo = Column(Text, nullable=True)
+    ocr = Column(String, nullable=True)
 
     cliente_id = Column(String, index=True)
     fecha_envio = Column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -107,10 +107,10 @@ class OCRSpaceProvider(OCRProvider):
         resultados = datos.get("ParsedResults", [])
         if not resultados:
             logger.warning("OCR.space no devolvio resultados")
-            return OCRResult(proveedor=self.nombre)
+            return OCRResult(ocr=self.nombre)
 
         texto_completo = resultados[0].get("ParsedText", "")
         logger.debug("OCR.space OK — %d caracteres extraidos", len(texto_completo))
         resultado = parsear_campos(texto_completo)
-        resultado.proveedor = self.nombre
+        resultado.ocr = self.nombre
         return resultado

@@ -206,25 +206,13 @@ async def subir_comprobante(
     validar_cliente_id(cliente_id)
 
     try:
-        # Streaming: escribir chunks a disco en lugar de cargar todo a RAM
-        chunk_size = 8192
-        nombre_seguro = sanitizar_filename(imagen.filename or "captura.jpg")
-        ext = f".{nombre_seguro.rsplit('.', 1)[-1]}" if "." in nombre_seguro else ".jpg"
-
-        # Guardar directamente a disco con streaming
-        import tempfile
+        # Leer archivo completo en memoria
         from pathlib import Path
 
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir="uploads")
-        total_bytes = 0
-        while True:
-            chunk = await imagen.read(chunk_size)
-            if not chunk:
-                break
-            tmp.write(chunk)
-            total_bytes += len(chunk)
-        tmp.close()
+        contenido = await imagen.read()
+        total_bytes = len(contenido)
 
+        nombre_seguro = sanitizar_filename(imagen.filename or "captura.jpg")
         safe_filename = (
             (imagen.filename or "unknown").replace("\n", "").replace("\r", "")
         )
@@ -235,17 +223,16 @@ async def subir_comprobante(
             cliente_id,
         )
 
-        # Validar desde el archivo en disco
-        with open(tmp.name, "rb") as f:
-            contenido = f.read()
+        # Validar
         validar_archivo(contenido, imagen.filename or "captura.jpg")
-        contenido = None  # Liberar memoria
 
-        # Mover a nombre final con UUID
+        # Guardar a disco con nombre UUID
         import uuid
 
+        ext = f".{nombre_seguro.rsplit('.', 1)[-1]}" if "." in nombre_seguro else ".jpg"
         ruta_final = Path("uploads") / f"{uuid.uuid4().hex}{ext}"
-        Path(tmp.name).rename(ruta_final)
+        ruta_final.write_bytes(contenido)
+        contenido = None  # Liberar memoria
         ruta_imagen = str(ruta_final)
 
         respuesta = await asyncio.get_running_loop().run_in_executor(
@@ -270,7 +257,6 @@ async def subir_comprobante(
             "no_comprobante": respuesta.no_comprobante,
             "monto": respuesta.monto,
             "ocr_exitoso": respuesta.ocr_exitoso,
-            "proveedor_ocr": respuesta.proveedor_ocr,
         }
 
     except UploadValidationError as e:
