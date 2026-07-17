@@ -41,8 +41,7 @@ Proximos pasos y funcionalidades pendientes.
 - ✅ **M12**: SQLite con `pool_pre_ping`
 - ✅ **M13**: Cache de preprocesamiento OCR
 - ✅ **M14**: Compresión de imagen antes de APIs (>1MB)
-- ✅ **M15**: Upload con streaming (8KB chunks)
-- ✅ **B6**: `os.path.exists` por request (pendiente menor)
+- ✅ **M15**: Upload con lectura completa (reemplazó streaming 8KB)
 
 ### Calidad (15 items)
 - ✅ **C9**: `monto` "0" ya no se excluye
@@ -91,7 +90,7 @@ Proximos pasos y funcionalidades pendientes.
 ## Pendientes (3 items menores)
 
 ### B6: `os.path.exists()` por request en Tesseract
-`ocr/tesseract_provider.py:57-73` ejecuta `os.path.exists()` en cada request para auto-detectar el binario.
+`ocr/tesseract_provider.py:124` ejecuta `os.path.exists()` en cada request para verificar el binario antes de ejecutar OCR.
 **Impacto**: ~1ms overhead, despreciable. **Prioridad**: Baja.
 
 ### B7: Configuración PG incompleta
