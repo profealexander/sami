@@ -2,7 +2,7 @@
 test_parsers.py — Tests de parsers OCR compartidos.
 """
 
-from ocr.parsers import parsear_campos, RE_CAJERO, RE_VENTA, RE_MONTO
+from ocr.parsers import parsear_campos, RE_TRANSFIERE, RE_COMPROBANTE, RE_MONTO
 
 
 def test_parsear_transfiere():
@@ -71,11 +71,25 @@ def test_parsear_texto_vacio():
 
 
 def test_regex_compilados():
-    assert RE_CAJERO is not None
-    assert RE_VENTA is not None
+    assert RE_TRANSFIERE is not None
+    assert RE_COMPROBANTE is not None
     assert RE_MONTO is not None
 
 
 def test_texto_completo_incluido():
     resultado = parsear_campos("  Hola mundo  ")
     assert resultado["texto_completo"] == "Hola mundo"
+
+
+def test_parsear_comprobante_pichincha():
+    texto = """$ 20.00
+A Barvecho Ordoñez Maria Cristina
+El 06 de julio de 2026
+De Guzman Guzman Lorena
+Cuenta destino: *** *** 3273
+N° de comprobante: 94644154"""
+    resultado = parsear_campos(texto)
+    assert resultado["transfiere"] == "Guzman Guzman Lorena"
+    assert resultado["monto"] == "20.00"
+    assert resultado["no_comprobante"] == "94644154"
+    assert "N° de comprobante: 94644154" in resultado["texto_completo"]

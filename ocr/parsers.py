@@ -19,10 +19,10 @@ MESES_ES = _cfg["meses"]
 MESES_FALLBACK = _cfg["meses_fallback"]
 PATRONES = _cfg["patrones"]
 
-RE_CAJERO = re.compile(PATRONES["cajero"][0], re.IGNORECASE)
+RE_TRANSFIERE = re.compile(PATRONES["transfiere"][0], re.IGNORECASE)
 # RE_FECHA = re.compile(PATRONES["fecha_numerica"][0])       # Disponible para uso futuro
 # RE_HORA = re.compile(PATRONES["hora"][0], re.IGNORECASE)  # Disponible para uso futuro
-RE_VENTA = re.compile(PATRONES["no_venta"][0], re.IGNORECASE)
+RE_COMPROBANTE = re.compile(PATRONES["no_comprobante"][0], re.IGNORECASE)
 RE_MONTO = re.compile(PATRONES["monto"][0], re.IGNORECASE)
 # RE_DESTINATARIO = re.compile(PATRONES["destinatario"][1], re.IGNORECASE)  # Disponible para uso futuro
 
@@ -65,7 +65,7 @@ def parsear_campos(texto):
             continue
 
         if not resultado["transfiere"]:
-            m = _match_simple(linea, _compilar("cajero"))
+            m = _match_simple(linea, _compilar("transfiere"))
             if m:
                 resultado["transfiere"] = m.group(1).strip()
 
@@ -75,7 +75,7 @@ def parsear_campos(texto):
                 resultado["monto"] = m.group(1).replace(",", "")
 
         if not resultado["no_comprobante"]:
-            m = _match_simple(linea, _compilar("no_venta"))
+            m = _match_simple(linea, _compilar("no_comprobante"))
             if m:
                 resultado["no_comprobante"] = m.group(1).strip()
 

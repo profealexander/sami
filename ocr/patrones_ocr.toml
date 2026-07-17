@@ -1,12 +1,13 @@
-# Patrones de extraccion OCR
+# Patrones de extraccion OCR — adaptado para comprobantes de transferencia bancaria.
 # Edita este archivo para ajustar los regex sin tocar codigo Python.
 # Cada campo tiene una lista de patrones. El primero que matchee se usa.
 # Los grupos de captura entre parentesis () son los valores a extraer.
 
 [patrones]
-cajero = [
-    '(?:CAJERO|ATENDIO|CAJER@|VENDEDOR|EMPLEADO)\s*[\:\-]?\s*(.+)',
+transfiere = [
     '^De\s+(.+)$',
+    '(?:REMITENTE|ORDENANTE|TRANSFIERE|EMISOR)\s*[\:\-]?\s*(.+)',
+    '(?:CAJERO|ATENDIO|CAJER@|VENDEDOR|EMPLEADO)\s*[\:\-]?\s*(.+)',
 ]
 
 destinatario = [
@@ -15,8 +16,8 @@ destinatario = [
 ]
 
 monto = [
-    '(?:MONTO|TOTAL|IMPORTE|PAGO)\s*[\:\-]?\s*\$?\s*([\d,]+\.?\d*)',
     '\$\s*([\d,]+\.?\d*)',
+    '(?:MONTO|TOTAL|IMPORTE|PAGO)\s*[\:\-]?\s*\$?\s*([\d,]+\.?\d*)',
 ]
 
 fecha_numerica = [
@@ -31,10 +32,12 @@ hora = [
     '(\d{1,2}):(\d{2})(?::(\d{2}))?',
 ]
 
-no_venta = [
-    '(?:VENTA|TICKET|FACTURA|COMPROBANTE)\s*[\:\-]?\s*(\d[\d\-/]*)',
-    '(?:No\.?|N|NUMERO|FOLIO)\s*[\:\-]?\s*(\d[\d\-]*)',
+no_comprobante = [
+    '(?:N°|N\.°|No\.?)\s*de\s+comprobante\s*[\:\-]?\s*(\d[\d\-]*)',
+    '(?:COMPROBANTE|REFERENCIA|OPERACION|TRANSFERENCIA)\s*[\:\-]?\s*(\d[\d\-]*)',
     'N[\*\u00B0]\s*de\s+(?:comprobante|venta|ticket)\s*[\:\-]?\s*(\d[\d\-]*)',
+    '(?:VENTA|TICKET|FACTURA)\s*[\:\-]?\s*(\d[\d\-/]*)',
+    '(?:No\.?|N|NUMERO|FOLIO)\s*[\:\-]?\s*(\d[\d\-]*)',
     '(?:No\.?\s*VENTA|NO\.?\s*VENTA)\s*[\:\-]?\s*(\d+)',
 ]
 
