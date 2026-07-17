@@ -27,6 +27,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
+    """Configuración unificada del servidor SAMI."""
+
     # ── Servidor ──
     host: Optional[str] = None
     port: int = 8000
@@ -69,10 +71,14 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        return ["*"] if self.cors_origins == "*" else [o.strip() for o in self.cors_origins.split(",")]
+        """Retorna lista de orígenes CORS normalizada."""
+        if self.cors_origins == "*":
+            return ["*"]
+        return [o.strip() for o in self.cors_origins.split(",")]
 
     @model_validator(mode="after")
     def _smart_defaults(self):
+        """Aplica defaults inteligentes según el entorno (dev/prod)."""
         cpu = os.cpu_count() or 1
         prod = self.env == "production"
 
@@ -97,19 +103,23 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
+        """Retorna True si el entorno es producción."""
         return self.env == "production"
 
     @property
     def is_development(self) -> bool:
+        """Retorna True si el entorno es development."""
         return self.env == "development"
 
     @property
     def upload_dir_abs(self) -> Path:
+        """Retorna la ruta absoluta del directorio de uploads."""
         return PROJECT_ROOT / self.upload_dir
 
 
 @lru_cache
 def get_settings() -> Settings:
+    """Retorna el singleton Settings con valores cacheados."""
     return Settings()
 
 

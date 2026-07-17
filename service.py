@@ -138,6 +138,6 @@ def _resolver_ruta_imagen(ruta_imagen: str, backend) -> str:
     return backend.resolver_ruta(ruta_imagen)
 
 
-def _limpiar_temporal(ruta_absoluta: str, ruta_original: str, backend) -> None:
+def _limpiar_temporal(ruta_absoluta: str, _ruta_original: str, backend) -> None:
     """Elimina archivo temporal usando el backend."""
     backend.limpiar_temporal(ruta_absoluta)

@@ -83,9 +83,11 @@ app.add_middleware(
 # Middleware CSP (Content Security Policy)
 @app.middleware("http")
 async def csp_middleware(request, call_next):
+    """Agrega headers de seguridad CSP, X-Content-Type-Options y X-Frame-Options."""
     response = await call_next(request)
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:"
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:"
     )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -205,7 +207,7 @@ async def subir_comprobante(
 
     try:
         # Streaming: escribir chunks a disco en lugar de cargar todo a RAM
-        CHUNK_SIZE = 8192
+        chunk_size = 8192
         nombre_seguro = sanitizar_filename(imagen.filename or "captura.jpg")
         ext = f".{nombre_seguro.rsplit('.', 1)[-1]}" if "." in nombre_seguro else ".jpg"
 
@@ -216,7 +218,7 @@ async def subir_comprobante(
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir="uploads")
         total_bytes = 0
         while True:
-            chunk = await imagen.read(CHUNK_SIZE)
+            chunk = await imagen.read(chunk_size)
             if not chunk:
                 break
             tmp.write(chunk)
@@ -273,35 +275,35 @@ async def subir_comprobante(
 
     except UploadValidationError as e:
         logger.warning("Upload rechazado: %s", e.mensaje)
-        raise HTTPException(status_code=e.codigo, detail=e.causa or e.mensaje)
+        raise HTTPException(status_code=e.codigo, detail=e.causa or e.mensaje) from e
 
     except OCRError as e:
         logger.error("Error OCR en upload: %s", e.mensaje)
         raise HTTPException(
             status_code=500,
             detail=f"Error procesando OCR con {e.proveedor}: {e.causa}",
-        )
+        ) from e
 
     except StorageError as e:
         logger.error("Error de almacenamiento: %s", e.mensaje)
         raise HTTPException(
             status_code=500,
             detail=f"Error guardando imagen en {e.backend}: {e.causa}",
-        )
+        ) from e
 
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
         logger.exception("Error inesperado en /api/upload")
         raise HTTPException(
             status_code=500,
             detail="Error interno del servidor",
-        )
+        ) from exc
 
 
 @app.exception_handler(Exception)
-async def error_global(request: Request, exc: Exception):
+async def error_global(request: Request, _exc: Exception):
     """Captura cualquier excepcion no manejada y retorna 500."""
     logger.exception("Excepcion no capturada en %s", request.url.path)
     return JSONResponse(

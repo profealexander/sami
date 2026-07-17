@@ -41,7 +41,10 @@ class UploadValidator:
         if len(contenido) > self.max_size_bytes:
             raise UploadValidationError(
                 codigo=413,
-                causa=f"Archivo demasiado grande ({len(contenido) // 1024}KB). Máximo: {self.max_size_mb}MB",
+                causa=(
+                    f"Archivo demasiado grande ({len(contenido) // 1024}KB). "
+                    f"Máximo: {self.max_size_mb}MB"
+                ),
             )
 
     def validar_extension(self, filename: str):
@@ -50,7 +53,10 @@ class UploadValidator:
         if ext not in self.allowed_extensions:
             raise UploadValidationError(
                 codigo=422,
-                causa=f"Extensión '{ext}' no permitida. Usar: {', '.join(sorted(self.allowed_extensions))}",
+                causa=(
+                    f"Extensión '{ext}' no permitida. "
+                    f"Usar: {', '.join(sorted(self.allowed_extensions))}"
+                ),
             )
 
     def validar_tipo_real(self, contenido: bytes):
@@ -67,11 +73,11 @@ class UploadValidator:
                     )
         except UploadValidationError:
             raise
-        except Exception:
+        except Exception as exc:
             raise UploadValidationError(
                 codigo=422,
                 causa="El archivo no es una imagen válida",
-            )
+            ) from exc
 
     def validar_content_type(self, content_type: str | None, filename: str):
         """Valida que el Content-Type reportado sea consistente con la extensión."""

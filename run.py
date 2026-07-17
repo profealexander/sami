@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # Enmascarar credenciales en el log de BD
     db_url = settings.database_url
     if "@" in db_url:
-        db_url = db_url.split("@")[-1]  # Eliminar usuario:password@
+        db_url = db_url.rsplit("@", maxsplit=1)[-1]  # Eliminar usuario:password@
     logger.info("BD: %s", db_url)
     logger.info("Storage: %s", settings.storage_backend)
 

@@ -15,6 +15,6 @@ from database.models import Comprobante  # noqa: F401  — ejecuta create_all al
 from config.logger import get_logger
 
 logger = get_logger("database")
-logger.info("Tablas verificadas/creadas — motor=%s", DATABASE_URL.split("://")[0])
+logger.info("Tablas verificadas/creadas — motor=%s", DATABASE_URL.split("://", maxsplit=1)[0])
 
 __all__ = ["engine", "SessionLocal", "Base", "get_db", "Comprobante"]

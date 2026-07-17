@@ -6,9 +6,9 @@ Activo solo cuando STORAGE_BACKEND=cloudinary en .env.
 import os
 import tempfile
 
+from config import settings
 from config.logger import get_logger
 from storage.base import StorageProvider
-from config import settings
 from utils.exceptions import StorageError
 
 logger = get_logger("storage.cloudinary")
@@ -39,7 +39,7 @@ class CloudinaryStorageProvider(StorageProvider):
             return url
         except Exception as e:
             raise StorageError(
-                mensaje=f"Error subiendo a Cloudinary: {e}", backend="cloudinary"
+                backend="cloudinary", causa=f"Error subiendo a Cloudinary: {e}"
             ) from e
 
     def resolver_ruta(self, ruta: str) -> str:
@@ -50,10 +50,10 @@ class CloudinaryStorageProvider(StorageProvider):
         resp = requests.get(ruta, timeout=30)
         resp.raise_for_status()
         ext = ruta.split(".")[-1].split("?")[0] if "." in ruta else "jpg"
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
-        tmp.write(resp.content)
-        tmp.close()
-        return tmp.name
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+            tmp.write(resp.content)
+            tmp_name = tmp.name
+        return tmp_name
 
     def limpiar_temporal(self, ruta: str) -> None:
         """Elimina archivo temporal descargado."""

@@ -76,7 +76,7 @@ def comprimir_imagen(
 
     if necesita_resize and max_dim > 0:
         if img.width > max_dim or img.height > max_dim:
-            img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+            img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")

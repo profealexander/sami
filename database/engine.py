@@ -30,18 +30,17 @@ def create_engine_from_url() -> object:
     url = DATABASE_URL
 
     if url.startswith("sqlite"):
-        logger.info("Backend: SQLite — %s", url.split("://")[0])
+        logger.info("Backend: SQLite — %s", url.split("://", maxsplit=1)[0])
         return create_sqlite_engine(url)
 
-    elif url.startswith("postgresql") or url.startswith("postgres"):
+    if url.startswith("postgresql") or url.startswith("postgres"):
         logger.info("Backend: PostgreSQL — pool_size=%s", settings.db_pool_size)
         return create_postgres_engine(url, pool_size=settings.db_pool_size)
 
-    else:
-        raise ValueError(
-            f"Motor de BD no soportado: {url.split('://')[0]!r}. "
-            f"Usa sqlite://... o postgresql://..."
-        )
+    raise ValueError(
+        f"Motor de BD no soportado: {url.split('://', maxsplit=1)[0]!r}. "
+        f"Usa sqlite://... o postgresql://..."
+    )
 
 
 engine = create_engine_from_url()

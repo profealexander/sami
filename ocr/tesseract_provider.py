@@ -162,7 +162,7 @@ class TesseractProvider(OCRProvider):
             w, h = img.size
             img = img.resize(
                 (int(w * self.config.scale), int(h * self.config.scale)),
-                Image.LANCZOS,
+                Image.Resampling.LANCZOS,
             )
         img = img.convert("L")
         if self.config.denoise:

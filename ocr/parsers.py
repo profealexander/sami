@@ -24,7 +24,9 @@ RE_TRANSFIERE = re.compile(PATRONES["transfiere"][0], re.IGNORECASE)
 # RE_HORA = re.compile(PATRONES["hora"][0], re.IGNORECASE)  # Disponible para uso futuro
 RE_COMPROBANTE = re.compile(PATRONES["no_comprobante"][0], re.IGNORECASE)
 RE_MONTO = re.compile(PATRONES["monto"][0], re.IGNORECASE)
-# RE_DESTINATARIO = re.compile(PATRONES["destinatario"][1], re.IGNORECASE)  # Disponible para uso futuro
+# RE_DESTINATARIO = re.compile(
+#     PATRONES["destinatario"][1], re.IGNORECASE
+# )  # Disponible para uso futuro
 
 _regex_cache = {}
 
