@@ -6,7 +6,7 @@ Uso:
     engine = get_ocr_engine()
     resultado = engine.extraer_campos("uploads/foto.jpg")
 
-Proveedores disponibles (según OCR_PROVIDER en config/settings.py ← ocr/.env):
+Proveedores disponibles (según OCR_PROVIDER en ocr/.env):
     ocrspace  → OCR.space API (online) con fallback a Tesseract
     gemini    → Google Gemini API con fallback a Tesseract
     tesseract → solo Tesseract local (sin internet)
@@ -25,10 +25,17 @@ tasa de llamadas al proveedor primario).
 """
 
 import os
+from pathlib import Path
 
-from config import settings
+from dotenv import load_dotenv
+
 from ocr.base import OCRProvider
 from config.logger import get_logger
+
+# Cargar configuracion OCR desde ocr/.env en os.environ
+# NO usar pydantic-settings: los proveedores OCR leen con os.getenv()
+_dotenv_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=_dotenv_path, override=False)
 
 logger = get_logger("ocr.factory")
 
@@ -76,7 +83,7 @@ def get_ocr_engine() -> OCRProvider:
         registrar_ocr("gemini", GeminiProvider)
         registrar_ocr("tesseract", TesseractProvider)
 
-    provider = settings.ocr_provider.lower()
+    provider = os.getenv("OCR_PROVIDER", "ocrspace").lower()
     _validar_configuracion(provider)
 
     if provider == "tesseract":

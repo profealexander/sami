@@ -7,8 +7,7 @@ https://fastapi.tiangolo.com/advanced/settings/#pydantic-settings
 Prioridad de variables (de mayor a menor):
 1. Variables de entorno del sistema
 2. .env raiz
-3. ocr/.env (API keys OCR)
-4. Valores por defecto
+3. Valores por defecto
 
 Uso:
     from config import settings
@@ -56,9 +55,6 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 10
     allowed_extensions: str = ".jpg,.jpeg,.png,.webp"
 
-    # ── OCR ──
-    ocr_provider: str = "ocrspace"
-
     # ── Rate limiting ──
     rate_limit: int = 100
 
@@ -66,7 +62,7 @@ class Settings(BaseSettings):
     log_file: str = ""
 
     model_config = SettingsConfigDict(
-        env_file=[".env", "ocr/.env"],
+        env_file=[".env"],
         env_file_encoding="utf-8",
         extra="ignore",
     )
